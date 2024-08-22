@@ -1,4 +1,4 @@
-
+# pip install mseedlib
 
 # read in data
 
