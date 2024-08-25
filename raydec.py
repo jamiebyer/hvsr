@@ -22,12 +22,6 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
     """
 
     v1, n1, e1, t1 = vert, north, east, time
-    # formatting the signals such that the vectors are N x 1
-    if v1.shape[1] > v1.shape[0]:
-        v1 = np.transpose(v1)
-        n1 = np.transpose(n1)
-        e1 = np.transpose(e1)
-        t1 = np.transpose(t1)
 
     # setting up
     K0 = v1.shape[0]
