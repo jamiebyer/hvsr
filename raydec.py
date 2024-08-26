@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.signal import cheb1ord, cheby1, lfilter
+from scipy.signal import cheb1ord, cheby1, lfilter, detrend
 
 
 def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
@@ -10,11 +10,10 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
     for FSTEPS frequencies (on a logarithmic scale) between
     FMIN and FMAX, using CYCLES periods for the stacked signal
     and DFPAR as the relative bandwidth for the filtering.
-    The signal is cut into NWIN different time windows and
+    The signal is cut into NWIND different time windows and
     RayDec is applied to each of them.
 
-    VERT, NORTH, EAST and TIME have to be data matrices
-    (N x 1 or 1 x N) of equal sizes
+    VERT, NORTH, EAST and TIME have to be arrays of equal sizes
 
     suggested values: CYCLES = 10
     DFPAR = 0.1
@@ -25,25 +24,24 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
 
     # setting up
     K0 = v1.shape[0]
-    K = np.floor(K0 / nwind)
+    K = np.floor(K0 / nwind).astype(int)
     tau = t1[1] - t1[0]
     DTmax = 30
     fnyq = 1 / (2 * tau)
-    fstart = np.max(fmin, 1 / DTmax)
-    fend = np.min(fmax, fnyq)
+    fstart = np.max([fmin, 1 / DTmax])
+    fend = np.min([fmax, fnyq])
     flist = np.zeros(fsteps)
     constlog = (fend / fstart) ** (1 / (fsteps - 1))
-    # fl = fstart*constlog.^(cumsum(ones(fsteps,nwind))-1)
-    fl = fstart * constlog ** (np.cumsum(np.ones((fsteps, nwind))) - 1)
+    fl = fstart * constlog ** (np.cumsum(np.ones((fsteps, nwind)), axis=0) - 1)
     el = np.zeros(fsteps, nwind)
 
     # loop over the time windows
     for ind1 in range(nwind):
-        # *** matlab detrend -> np
-        vert = np.detrend(v1[(ind1 - 1) * K + 1 : ind1 * K])
-        north = np.detrend(n1[(ind1 - 1) * K + 1 : ind1 * K])
-        east = np.detrend(e1[(ind1 - 1) * K + 1 : ind1 * K])
-        time = t1[(ind1 - 1) * K + 1 : ind1 * K]
+        # *** matlab detrend -> scipy
+        vert = detrend(v1[ind1 * K + 1 : (ind1 + 1) * K])
+        north = detrend(n1[ind1 * K + 1 : (ind1 + 1) * K])
+        east = detrend(e1[ind1 * K + 1 : (ind1 + 1) * K])
+        time = t1[ind1 * K + 1 : (ind1 + 1) * K]
 
         horizontalamp = np.zeros(fsteps)
         verticalamp = np.zeros(fsteps)
@@ -59,8 +57,8 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
 
             # setting up the filter limits
             df = dfpar * f
-            fmin = np.max(fstart, f - df / 2)
-            fmax = np.min(fnyq, f + df / 2)
+            fmin = np.max([fstart, f - df / 2])
+            fmax = np.min([fnyq, f + df / 2])
             flist[findex] = f
             DT = cycles / f
             wl = np.round(DT / tau)
@@ -72,12 +70,17 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             Rs = 5
 
             N, Wn = cheb1ord(Wp, Ws, Rp, Rs)
-            b, a = cheby1(N, 0.5, Wn)
+            b, a = cheby1(N, 0.5, Wn, btype="bandpass")
             # w, h = signal.freqz(b, a)
 
-            taper1 = np.arange(1 / np.round(time.shape[0] / 100))
-            taper2 = np.ones(1, time.shape[0] - taper1.shape[1] * 2)
-            taper3 = np.fliplr(taper1)
+            taper1 = np.arange(0, 1, 1 / np.round(time.shape[0] / 100))
+            #taper2 = np.ones(time.shape[0]-taper1.shape[0]*2)
+            taper2 = np.ones(time.shape[0]-2)
+            taper3 = np.flip(taper1)
+
+            print(taper1.shape)
+            print(taper2.shape)
+            print(taper3.shape)
 
             taper = np.transpose([taper1, taper2, taper3])
 
