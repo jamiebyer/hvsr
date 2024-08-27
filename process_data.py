@@ -34,19 +34,19 @@ def is_channel(val):
 def parse_channel(channel):
     print(channel)
 
-def xml_to_dict(contents):
+def xml_to_dict(contents, include):
     # recursively loop over xml to make dictionary.
     # parse station data
     
     results_dict = {}
     for c in contents:
-        if hasattr(c, "name") and c.name is not None and c.name not in results_dict:
+        if hasattr(c, "name") and c.name is not None and c.name in include and c.name not in results_dict:
             results_dict[c.name] = []
         else:
             continue
         if not hasattr(c, "contents"):
             continue
-
+        
         if len(c.contents) == 1:
             result = c.contents[0]
             if is_int(result):
@@ -56,169 +56,85 @@ def xml_to_dict(contents):
             elif is_date(result):
                 result = datetime.strptime(result, '%Y-%m-%dT%H:%M:%S')
         elif c.contents is not None:
-            result = xml_to_dict(c.contents)
-            
-        results_dict[c.name].append(result)
-    
-    return results_dict
+            result = xml_to_dict(c.contents, include)
         
 
+        if c.name == "Channel":
+            results_dict[c.name].append(result)
+        else:
+            results_dict[c.name] = result
+    
+    return results_dict
 
 
+def get_tags_to_save():
 
-def read_xml_bs():
+    """
+    loop over all tags,
+    save unique tags as a single value
+    recuresively loop over tags with multiple values and add to dictionary
+    figure out which values change between stations
+    save stations to dataframe -> csv
+    """
+
+
     path = "./data/FDSN_Information.xml"
 
     with open(path, 'r') as f:
         file = f.read() 
 
-    # 'xml' is the parser used. For html files, which BeautifulSoup is typically used for, it would be 'html.parser'.
     soup = BeautifulSoup(file, 'xml')
 
-    # parse the data that is the same for all stations
+    # get unit information from Network
 
-    # parse station data
-    #stations = soup.find_all('Station')[:2]
-    stations = soup.find_all('Station')
+    results = {}
+    for d in soup.descendants:
+        if hasattr(d, "name") and d.name not in ["FDSNStationXML", "Network"]:
+            if d.name not in results:
+                results[d.name] = []
+            results[d.name].append(d.text)
 
-    #results_dict = xml_to_dict(stations)
-    #print(results_dict)
+    all_stations = {}
+    for k, v in results.items():
+        unique_vals = np.unique(v)
+        if len(unique_vals) == 1:
+            all_stations[k] = unique_vals[0]
+    
+    remaining_vars = set(results.keys()) - set(all_stations.keys())
+    remaining_vars.remove("Site")
+    remaining_vars.remove("Channel")
 
-    results_dict = {
-        "Station": [],
+    stations = {}
+    for s in soup.find_all("Station"):
+        if s is not None and s.find("Site") is not None:
+            site = s.find("Site").find("Name").text
+            # maybe save serial number from channels
+            #channels = s.find_all("Channel")
+            #channels = [xml_to_dict(c.contents, remaining_vars) for c in channels]
+
+            stations[site] = xml_to_dict(s.contents, remaining_vars)
+            #stations[site]["Channels"] = channels
+    
+
+    # convert dictionary to dataframe and save stations as csv
+    stations_dict = {
+        "Site": [],
         "Latitude": [],
         "Longitude": [],
         "Elevation": [],
-        "Site": [],
         "CreationDate": [],
-        #"TotalNumberChannels": [],
-        #"SelectedNumberChannels": [],
-        #"Channel": []
     }
 
-    for c in contents:
-        if hasattr(c, "name") and c.name is not None and c.name not in results_dict:
-            results_dict[c.name] = []
-        else:
-            continue
-        if not hasattr(c, "contents"):
-            continue
+    for site, attrib in stations.items():
+        stations_dict["Site"].append(site)
+        for key, value in attrib.items():
+            stations_dict[key].append(value)
 
-        if len(c.contents) == 1:
-            result = c.contents[0]
-            if is_int(result):
-                result = int(result)
-            elif is_float(result):
-                result = float(result)
-            elif is_date(result):
-                result = datetime.strptime(result, '%Y-%m-%dT%H:%M:%S')
-        elif c.contents is not None:
-            result = xml_to_dict(c.contents)
-            
-        results_dict[c.name].append(result)
-
-    # make into pandas dataframe
-
-    df = pd.DataFrame(results_dict)
-
-
-def read_xml():
-    path = "./data/FDSN_Information.xml"
-    fdsn_station = "{http://www.fdsn.org/xml/station/1}"
-    tree = ET.parse(path)
-    root = tree.getroot()
-
-
-    """
-    all_descendants = list(root.iter())
-
-    results_dict = {}
-    for d in all_descendants:
-        #name = d.tag.removeprefix(fdsn_station)
-        name = d.tag
-        if name not in results_dict:
-            results_dict[name] = []
-        if d.text is not None:
-            results_dict[name].append(d.text)
     
-    """
+    #pd.DataFrame(stations_dict).to_csv("./data/parsed_xml.csv")
+    #print(stations["24025"])
+
     
-    prefix = ".//{http://www.fdsn.org/xml/station/1}"
-    # overall information
-    source = root.find(prefix + "Source").text # DTCC
-    sender = root.find(prefix + "Sender").text #DTCC
-    module = root.find(prefix + "Module").text #SOLOLITE
-    module_uri = root.find(prefix + "ModuleURI").text
-    created = root.find(prefix + "Created").text
-    total_stations = root.find(prefix + "TotalNumberStations").text #946
-    selected_stations = root.find(prefix + "SelectedNumberStations").text
-    
-
-    #for r in root:
-    #    if hasattr(r, "attrib"):
-    #        for a in r.attrib:
-    #            print(a)
-
-
-    stations = root.findall(prefix + "Station")
-    #channels = root.findall(prefix + "Channel")
-
-    for s in stations:
-        print(s.attrib)
-        print(s.find("Latitude"))
-        
-
-    #names = root.findall(prefix + "CreationDate")
-    #names_text = [n.text for n in names]
-
-    #all_descendants = list(root.iter())
-    #for d in all_descendants:
-    #    print(d.tag.removeprefix(fdsn_station))
-    
-    #tails = [d.tail if d.tail is not None else "a" for d in all_descendants]
-    #print(np.unique(tails))
-
-    #print(len(np.unique(names_text)))
-
-    #for n in names:
-    #    print(n.tail)
-
-
-    """
-    Description 14191
-    Latitude 3784
-    Longitude 3784
-    Elevation 3784
-    Name 12298
-    CreationDate 946
-    TotalNumberChannels 946
-    SelectedNumberChannels 946
-    Depth 2838
-    Azimuth 2838
-    Dip 2838
-    Type 2838
-    SampleRate 2838
-    ClockDrift 2838
-    Manufacturer 2838
-    SerialNumber 2838
-    Value 5676
-    Frequency 5676
-    PzTransferFunctionType 2838
-    NormalizationFactor 2838
-    NormalizationFrequency 2838
-    Real 11352
-    Imaginary 11352
-    InputSampleRate 2838
-    Factor 2838
-    Offset 2838
-    Delay 2838
-    Correction 2838
-    """
-    
-#
-# READ YEG PAPERS
-#
-
 
 # parse reading in the data file name
 
@@ -231,26 +147,6 @@ def read_xml():
 - can use wavelength to estimate layer thickness (or use mcmc with 1 layer model)
 - RAYDEC is used to try to reduce effect of body waves on data
 """
-
-
-
-def read_xml():
-    tree = ET.parse("data/FDSN_Information.xml")
-
-    # getting the parent tag of the xml document
-    root = tree.getroot()
-
-    # Print out the tag of the root and all child tags
-    print("root tag", root.tag)
-    #for child in root:
-        #print(child.tag, child.attrib)
-
-
-    tags = [elem.tag for elem in root.iter()][:5]
-    print("child tags", tags)
-
-    #for movie in root.iter('movie'):
-    #    print(movie.attrib)
 
 
 
@@ -298,8 +194,6 @@ def read_data():
     #t = 1.0 / f[::-1]
 
     # raydec
-    # https://github.com/ManuelHobiger/RayDec
-
     filtered_data = raydec(
         vert=trace_vert.data,
         north=trace_north.data,
@@ -313,8 +207,10 @@ def read_data():
         nwind=n_wind
     )
 
-    filtered_data.plot()
-    plt.show()
+    #filtered_data.plot()
+    #plt.show()
+
+
 
 def window_data():
     # window data
@@ -326,4 +222,4 @@ def window_data():
     windows = stream.slide(window_length, step, offset, include_partial_windows)
 
 
-read_xml_bs()
+get_tags_to_save()

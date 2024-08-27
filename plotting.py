@@ -1,9 +1,13 @@
 from obspy import read, Stream
 import matplotlib.pyplot as plt
-
+import pandas as pd
+import numpy as np
 
 def plot_station_info():
-    plt.scatter(results_dict["Latitude"], results_dict["Longitude"])
+    df = pd.read_csv("./data/parsed_xml.csv")
+
+    plt.scatter(df["Latitude"], df["Longitude"], label=df["Site"])
+    plt.legend()
     plt.show()
 
 
@@ -49,4 +53,4 @@ def plot_data():
 
 
 
-plot_data()
+plot_station_info()

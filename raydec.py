@@ -3,6 +3,7 @@ from scipy.signal import cheb1ord, cheby1, lfilter, detrend
 
 
 def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
+    # from: # https://github.com/ManuelHobiger/RayDec
     """
     RAYDEC1STATION(VERT, NORTH, EAST, TIME, FMIN, FMAX, FSTEPS, CYCLES, DFPAR, NWIND)
     calculates the ellipticity of Rayleigh waves for the
