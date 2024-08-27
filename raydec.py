@@ -75,10 +75,11 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             # w, h = signal.freqz(b, a)
 
             taper1 = np.arange(0, 1, 1 / np.round(time.shape[0] / 100))
-            #taper2 = np.ones(time.shape[0]-taper1.shape[0]*2)
-            taper2 = np.ones(time.shape[0]-2)
+            taper2 = np.ones(time.shape[0]- 2*taper1.shape[0])
+            #taper2 = np.ones(time.shape[0]-2)
             taper3 = np.flip(taper1)
 
+            print(time.shape)
             print(taper1.shape)
             print(taper2.shape)
             print(taper3.shape)

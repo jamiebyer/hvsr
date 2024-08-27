@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
+import os
+from raydec import raydec
 
 
 def is_int(val):
@@ -27,12 +29,6 @@ def is_date(val):
         return True
     except ValueError:
         return False
-
-def is_channel(val):
-    return hasattr(val, "children")
-
-def parse_channel(channel):
-    print(channel)
 
 def xml_to_dict(contents, include):
     # recursively loop over xml to make dictionary.
@@ -67,7 +63,7 @@ def xml_to_dict(contents, include):
     return results_dict
 
 
-def get_tags_to_save():
+def parse_xml(save=True):
 
     """
     loop over all tags,
@@ -76,8 +72,6 @@ def get_tags_to_save():
     figure out which values change between stations
     save stations to dataframe -> csv
     """
-
-
     path = "./data/FDSN_Information.xml"
 
     with open(path, 'r') as f:
@@ -130,87 +124,109 @@ def get_tags_to_save():
         for key, value in attrib.items():
             stations_dict[key].append(value)
 
+    if save:
+        pd.DataFrame(stations_dict).to_csv("./data/parsed_xml.csv")
+
+
+def parse_data():
+    # parse reading in the data file name
+    # 453025390.0029.2024.07.04.00.00.00.000.E.miniseed
+ 
+    directory = r"./gilbert_lab/Whitehorse_ANT/"
+
+    data_dict = {}
+    # iterate over files in directory
+    for file_name in os.listdir(directory):
+        if not file_name.endswith(".E.miniseed"):
+            continue
+
+        # read in data        
+        stream_east = read(file_name, format="mseed")
+        stream_north = read(file_name.replace(".E.", ".N."), format="mseed")
+        stream_vert = read(file_name.replace(".E.", ".Z."), format="mseed")
+
+        trace_east = stream_east.traces[0]
+        trace_north = stream_north.traces[0]
+        trace_vert = stream_vert.traces[0]
     
-    #pd.DataFrame(stations_dict).to_csv("./data/parsed_xml.csv")
-    #print(stations["24025"])
+        # make sure all directions line up for times
+        times = trace_east.times()
+        # make sure stats line up for traces
+        station = trace_east.stats["station"]
+        # starttime: 2024-06-06T18:04:52.000000Z
+        # endtime: 2024-06-07T00:00:00.000000Z
+        # sampling_rate: 100.0
+        # delta: 0.01
 
+        if station not in data_dict:
+            data_dict[station] = {
+                "time": times,
+                "east": trace_east.data,
+                "north": trace_north.data,
+                "vert": trace_vert.data,
+            }
+        else:
+            data_dict[station]["time"].append(times)
+            data_dict[station]["east"].append(trace_east.data)
+            data_dict[station]["north"].append(trace_north.data)
+            data_dict[station]["vert"].append(trace_vert.data)
+        
+    return data_dict
     
+def calc_hvsr(east, north, vert):
+    hvsr = np.sqrt(east**2 + north**2)/(np.sqrt(2)*np.abs(vert))
+    return hvsr    
 
-# parse reading in the data file name
-
-# 453025390.0029.2024.07.04.00.00.00.000.E.miniseed
-
-"""
-- split data into windows
-- average horizontal components, divide by vertical average
-- use fourier transform to move to frequency domain
-- can use wavelength to estimate layer thickness (or use mcmc with 1 layer model)
-- RAYDEC is used to try to reduce effect of body waves on data
-"""
-
-
-
-def read_data():
-
-    # read in data
-    stream_east = read("data/453025390.0029.2024.07.04.00.00.00.000.E.miniseed", format="mseed")
-    stream_north = read("data/453025390.0029.2024.07.04.00.00.00.000.N.miniseed", format="mseed")
-    stream_vert = read("data/453025390.0029.2024.07.04.00.00.00.000.Z.miniseed", format="mseed")
-    
-    trace_east = stream_east.traces[0]
-    trace_north = stream_north.traces[0]
-    trace_vert = stream_vert.traces[0]
-    #stream = Stream(traces=[trace_east, trace_north, trace_vert])
-    
-    # make sure all directions line up for times
-    times = trace_east.times()
-
+def process_data(station_dict):
     """
-    trace.stats:
-        network: SS
-        station: 24025
-        location: SW
-        channel: EPE
-        starttime: 2024-06-06T18:04:52.000000Z
-        endtime: 2024-06-07T00:00:00.000000Z
-        sampling_rate: 100.0
-        delta: 0.01
-        npts: 2130801
-        calib: 1.0
+    - split data into windows (done by raydec?)
+    - RAYDEC is used to try to reduce effect of body waves on data
+    - average horizontal components, divide by vertical average
+    - use fourier transform to move to frequency domain
+    - can use wavelength to estimate layer thickness (or use mcmc with 1 layer model)
     """
-    
     """
-    suggested values: CYCLES = 10
+    # get suggested inputs for raydec
+    CYCLES = 10
     DFPAR = 0.1
     NWIND such that the single time windows are about 10 minutes long
     """
 
+    times = station_dict["time"]
     print("times: ", np.min(times), np.max(times))
     n_wind = np.round(times[-1] / (10*60*60)).astype(int)
 
-    # cycles: number of periods
-    
     #f = numpy.linspace(0.1, 10.0, 100)
     #t = 1.0 / f[::-1]
 
+    freq_sampling = 1/100
+    freq_nyq = freq_sampling / 2
+
+
     # raydec
     filtered_data = raydec(
-        vert=trace_vert.data,
-        north=trace_north.data,
-        east=trace_east.data,
-        time=times,
-        fmin=0.5,
-        fmax=5,
+        vert=station_dict["vert"],
+        north=station_dict["north"],
+        east=station_dict["east"],
+        time=station_dict["time"],
+        fmin=0.002,
+        fmax=0.0333,
         fsteps=100,
         cycles=10,
         dfpar=0.1,
         nwind=n_wind
     )
 
+    hvsr = calc_hvsr(east, north, vert)
+
+    # Fourier transform
+
+    # use wavelength to estimate layer thickness (or use mcmc with 1 layer model)
+
     #filtered_data.plot()
     #plt.show()
 
-
+    # save results to csv
 
 def window_data():
     # window data
@@ -222,4 +238,28 @@ def window_data():
     windows = stream.slide(window_length, step, offset, include_partial_windows)
 
 
-get_tags_to_save()
+if __name__ == "__main__":
+    """
+    run from terminal
+    """
+    # parse_xml()
+
+    #data_dict = parse_data()
+
+    # read in data
+    stream_east = read("data/453025390.0029.2024.07.04.00.00.00.000.E.miniseed", format="mseed")
+    stream_north = read("data/453025390.0029.2024.07.04.00.00.00.000.N.miniseed", format="mseed")
+    stream_vert = read("data/453025390.0029.2024.07.04.00.00.00.000.Z.miniseed", format="mseed")
+    
+    trace_east = stream_east.traces[0]
+    trace_north = stream_north.traces[0]
+    trace_vert = stream_vert.traces[0]
+
+    data_dict = {
+        "time": trace_east.times(),
+        "east": trace_east.data,
+        "north": trace_north.data,
+        "vert": trace_vert.data,
+    }
+
+    process_data(data_dict)
