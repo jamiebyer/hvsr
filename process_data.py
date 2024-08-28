@@ -131,51 +131,53 @@ def parse_xml(save=True):
 def parse_data():
     # parse reading in the data file name
     # 453025390.0029.2024.07.04.00.00.00.000.E.miniseed
+    # save each station to a separate file
  
-    directory = r"./gilbert_lab/Whitehorse_ANT/"
+    directory = r"../../gilbert_lab/Whitehorse_ANT/"
 
-    data_dict = {}
-    # iterate over files in directory
-    for file_name in os.listdir(directory):
-        if not file_name.endswith(".E.miniseed"):
-            continue
+    for station in range(2):
+        data_dict = {}
+        # iterate over files in directory
+        for file_name in os.listdir(directory):
+            if not file_name.endswith(".E.miniseed") or not file_name.contains("." + station.ljust(4, "0") + "."):
+                continue
+            
+            # read in data        
+            stream_east = read(file_name, format="mseed")
+            stream_north = read(file_name.replace(".E.", ".N."), format="mseed")
+            stream_vert = read(file_name.replace(".E.", ".Z."), format="mseed")
 
-        # read in data        
-        stream_east = read(file_name, format="mseed")
-        stream_north = read(file_name.replace(".E.", ".N."), format="mseed")
-        stream_vert = read(file_name.replace(".E.", ".Z."), format="mseed")
-
-        trace_east = stream_east.traces[0]
-        trace_north = stream_north.traces[0]
-        trace_vert = stream_vert.traces[0]
-    
-        # make sure all directions line up for times
-        times = trace_east.times()
-        # make sure stats line up for traces
-        station = trace_east.stats["station"]
-        # starttime: 2024-06-06T18:04:52.000000Z
-        # endtime: 2024-06-07T00:00:00.000000Z
-        # sampling_rate: 100.0
-        # delta: 0.01
-
-        if station not in data_dict:
-            data_dict[station] = {
-                "time": times,
-                "east": trace_east.data,
-                "north": trace_north.data,
-                "vert": trace_vert.data,
-            }
-        else:
-            data_dict[station]["time"].append(times)
-            data_dict[station]["east"].append(trace_east.data)
-            data_dict[station]["north"].append(trace_north.data)
-            data_dict[station]["vert"].append(trace_vert.data)
+            trace_east = stream_east.traces[0]
+            trace_north = stream_north.traces[0]
+            trace_vert = stream_vert.traces[0]
         
-    return data_dict
+            # make sure all directions line up for times
+            times = trace_east.times()
+            # make sure stats line up for traces
+            station = trace_east.stats["station"]
+            # starttime: 2024-06-06T18:04:52.000000Z
+            # endtime: 2024-06-07T00:00:00.000000Z
+            # sampling_rate: 100.0
+            # delta: 0.01
+
+            if station not in data_dict:
+                data_dict[station] = {
+                    "time": times,
+                    "east": trace_east.data,
+                    "north": trace_north.data,
+                    "vert": trace_vert.data,
+                }
+            else:
+                data_dict[station]["time"].append(times)
+                data_dict[station]["east"].append(trace_east.data)
+                data_dict[station]["north"].append(trace_north.data)
+                data_dict[station]["vert"].append(trace_vert.data)
+        df = pd.DataFrame(data_dict)
+        df.to_csv("./data/" + station.ljust(4, "0") + ".csv")
     
 def calc_hvsr(east, north, vert):
     hvsr = np.sqrt(east**2 + north**2)/(np.sqrt(2)*np.abs(vert))
-    return hvsr    
+    return hvsr
 
 def process_data(station_dict):
     """
