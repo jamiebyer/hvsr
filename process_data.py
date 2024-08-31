@@ -196,7 +196,7 @@ def process_data(station_dict):
 
     times = station_dict["time"]
     print("times: ", np.min(times), np.max(times))
-    n_wind = np.round(times[-1] / (10*60*60)).astype(int)
+    n_wind = np.round(times[-1] / (10*60)).astype(int)
 
     #f = numpy.linspace(0.1, 10.0, 100)
     #t = 1.0 / f[::-1]

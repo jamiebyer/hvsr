@@ -74,6 +74,9 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             b, a = cheby1(N, 0.5, Wn, btype="bandpass")
             # w, h = signal.freqz(b, a)
 
+            4179380
+            8358761
+
             taper1 = np.arange(0, 1, 1 / np.round(time.shape[0] / 100))
             taper2 = np.ones(time.shape[0]- 2*taper1.shape[0])
             #taper2 = np.ones(time.shape[0]-2)
