@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 from raydec import raydec
+import time
 
 
 def is_int(val):
@@ -128,52 +129,101 @@ def parse_xml(save=True):
         pd.DataFrame(stations_dict).to_csv("./data/parsed_xml.csv")
 
 
+def get_file_information():
+    directory = r"../../gilbert_lab/Whitehorse_ANT/"
+
+    # iterate over files in directory
+    data_dict = {}
+    for file_name in os.listdir(directory):
+        if not file_name.endswith(".E.miniseed"):
+            continue
+
+        # read in data        
+        stream_east = read(directory + file_name, format="mseed")
+        trace_east = stream_east.traces[0]
+        station = int(trace_east.stats["station"])
+
+        if len(stream_east) != 1:
+            raise ValueError
+
+        data_dict[file_name] = {
+            "station": station,
+        }
+    df = pd.DataFrame(data_dict)
+    df.to_csv("./data/file_information.csv")
+
 def parse_data():
     # parse reading in the data file name
     # 453025390.0029.2024.07.04.00.00.00.000.E.miniseed
     # save each station to a separate file
- 
-    directory = r"../../gilbert_lab/Whitehorse_ANT/"
 
-    for station in range(2):
-        data_dict = {}
-        # iterate over files in directory
-        for file_name in os.listdir(directory):
-            if not file_name.endswith(".E.miniseed") or not file_name.contains("." + station.ljust(4, "0") + "."):
-                continue
-            
+    file_mapping = pd.read_csv("../data/file_information.csv")
+
+    stations = np.unique(file_mapping["stations"])
+ 
+    directory = r"../../../gilbert_lab/Whitehorse_ANT/"
+    # iterate over files in directory
+    #station_dict = {}
+    for station in [stations[0]]:
+        print(station)
+        '''
+        station_dict[station] = {
+            "time": [],
+            "east": [],
+            "north": [],
+            "vert": [],
+        }
+        '''
+        file_names = file_mapping.loc[file_mapping["stations"] == station]["file_names"]
+        
+        # save each file to csv
+        for file_name in file_names[3:]:
+            print("\n", file_name)
             # read in data        
-            stream_east = read(file_name, format="mseed")
-            stream_north = read(file_name.replace(".E.", ".N."), format="mseed")
-            stream_vert = read(file_name.replace(".E.", ".Z."), format="mseed")
+            stream_east = read(directory + file_name, format="mseed")
+            stream_north = read(directory + file_name.replace(".E.", ".N."), format="mseed")
+            stream_vert = read(directory + file_name.replace(".E.", ".Z."), format="mseed")
+
+            if not np.all(np.array([len(stream_east), len(stream_north), len(stream_vert)]) == 1):
+                raise ValueError
 
             trace_east = stream_east.traces[0]
             trace_north = stream_north.traces[0]
             trace_vert = stream_vert.traces[0]
-        
+            
             # make sure all directions line up for times
             times = trace_east.times()
-            # make sure stats line up for traces
-            station = trace_east.stats["station"]
+            print(len(times))
+
             # starttime: 2024-06-06T18:04:52.000000Z
             # endtime: 2024-06-07T00:00:00.000000Z
             # sampling_rate: 100.0
             # delta: 0.01
+            '''
+            station_dict[station]["time"].append(list(times))
+            station_dict[station]["east"].append(list(trace_east.data))
+            station_dict[station]["north"].append(list(trace_north.data))
+            station_dict[station]["vert"].append(list(trace_vert.data))
+            '''
+            plt.clf()
+            plt.subplot(3, 1, 1)
+            plt.plot(times, trace_east.data)
+            plt.subplot(3, 1, 2)
+            plt.plot(times, trace_north.data)
+            plt.subplot(3, 1, 3)
+            plt.plot(times, trace_vert.data)
 
-            if station not in data_dict:
-                data_dict[station] = {
-                    "time": times,
-                    "east": trace_east.data,
-                    "north": trace_north.data,
-                    "vert": trace_vert.data,
-                }
-            else:
-                data_dict[station]["time"].append(times)
-                data_dict[station]["east"].append(trace_east.data)
-                data_dict[station]["north"].append(trace_north.data)
-                data_dict[station]["vert"].append(trace_vert.data)
-        df = pd.DataFrame(data_dict)
-        df.to_csv("./data/" + station.ljust(4, "0") + ".csv")
+            path = "../figures/" + str(station) + "." + str(trace_east.stats["starttime"]) + ".png"
+            plt.savefig(path)
+
+        #df = pd.DataFrame(station_dict)
+        #df.to_csv("./data/" + str(station) + ".csv")
+
+    #print("writing csvs")
+    #for station, station_dict in data_dict.items():
+    #    df = pd.DataFrame(station_dict)
+    #    #df.to_csv("./data/" + str(s).rjust(4, "0") + ".csv")
+    #    df.to_csv("./data/" + str(station) + ".csv")
     
 def calc_hvsr(east, north, vert):
     hvsr = np.sqrt(east**2 + north**2)/(np.sqrt(2)*np.abs(vert))
@@ -246,8 +296,11 @@ if __name__ == "__main__":
     """
     # parse_xml()
 
-    #data_dict = parse_data()
+    # get_file_information()
 
+    parse_data()
+
+    '''
     # read in data
     stream_east = read("data/453025390.0029.2024.07.04.00.00.00.000.E.miniseed", format="mseed")
     stream_north = read("data/453025390.0029.2024.07.04.00.00.00.000.N.miniseed", format="mseed")
@@ -265,3 +318,4 @@ if __name__ == "__main__":
     }
 
     process_data(data_dict)
+    '''
