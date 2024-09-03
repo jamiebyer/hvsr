@@ -34,7 +34,7 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
     flist = np.zeros(fsteps)
     constlog = (fend / fstart) ** (1 / (fsteps - 1))
     fl = fstart * constlog ** (np.cumsum(np.ones((fsteps, nwind)), axis=0) - 1)
-    el = np.zeros(fsteps, nwind)
+    el = np.zeros((fsteps, nwind))
 
     # loop over the time windows
     for ind1 in range(nwind):
@@ -73,9 +73,6 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             N, Wn = cheb1ord(Wp, Ws, Rp, Rs)
             b, a = cheby1(N, 0.5, Wn, btype="bandpass")
             # w, h = signal.freqz(b, a)
-
-            4179380
-            8358761
 
             taper1 = np.arange(0, 1, 1 / np.round(time.shape[0] / 100))
             taper2 = np.ones(time.shape[0]- 2*taper1.shape[0])

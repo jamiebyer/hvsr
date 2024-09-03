@@ -2,12 +2,34 @@ from obspy import read, Stream
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from bs4 import BeautifulSoup
 
 """
 TODO:
 - set up linters.
 - add unit information
 """
+
+
+def plot_from_xml():
+    path = "./data/FDSN_Information.xml"
+
+    with open(path, 'r') as f:
+        file = f.read()
+
+    soup = BeautifulSoup(file, 'xml')
+
+    #print(soup.__dict__.keys())
+    #print(soup.tagStack)
+
+    lats = [float(lat.text) for lat in soup.find_all("Latitude")]
+    lons = [float(lat.text) for lat in soup.find_all("Longitude")]
+
+    plt.scatter(lons, lats)
+    plt.xlabel("Longitude")
+    plt.ylabel("Latitude")
+    plt.show()
+
 
 
 def plot_station_info():
@@ -18,6 +40,10 @@ def plot_station_info():
     plt.ylabel("Latitude")
     plt.legend()
     plt.show()
+
+    
+    # Elevation
+    # Times
 
 
 def plot_data():
@@ -46,14 +72,8 @@ def plot_data():
     plt.show()
 
 
-    # will loop over all files...
-    # filename = "453024025.0001.2024.06.06.18.04.52.000.E.miniseed"
-    # path = Path("/gilbert_lab/Whitehorse_ANT/")
-
-
 if __name__ == "__main__":
     """
     run from terminal
     """
-
     plot_station_info()
