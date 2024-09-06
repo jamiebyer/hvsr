@@ -165,20 +165,24 @@ def parse_data():
     # 453025390.0029.2024.07.04.00.00.00.000.E.miniseed
     # save each station to a separate file
 
-    file_mapping = pd.read_csv("./data/file_information.csv")
+    # input station list and file list to save
 
-    stations = np.unique(file_mapping["stations"])
+    file_mapping = pd.read_csv("./data/file_information.csv", index_col=0)
+    file_names = file_mapping.columns
+    stations = file_mapping.loc["station"]
+    unique_stations = np.unique(stations)
  
     directory = r"./../../gilbert_lab/Whitehorse_ANT/"
     # iterate over files in directory
-    for station in [stations[0]]:
+    for station in [stations[0]]: # unique_stations
         print(station)
-        file_names = file_mapping.loc[file_mapping["stations"] == station]["file_names"]
-        
+        file_names = file_names[stations == station]
+        #for f in file_names:
+        #    print(f)
         # save each file to csv
-        for file_name in file_names[:2]:
+        for file_name in file_names:
             print("\n", file_name)
-            # read in data        
+            # read in data
             stream_east = read(directory + file_name, format="mseed")
             stream_north = read(directory + file_name.replace(".E.", ".N."), format="mseed")
             stream_vert = read(directory + file_name.replace(".E.", ".Z."), format="mseed")
@@ -211,7 +215,6 @@ def parse_data():
             north_avg = np.convolve(north, convolution_kernel, mode='valid')
             vert_avg = np.convolve(vert, convolution_kernel, mode='valid')
 
-            """
             plot_station_timeseries(
                 start_date, 
                 station, 
@@ -224,9 +227,9 @@ def parse_data():
                 north_avg,
                 vert_avg,
             )
-            """
-            freqs, hvsr = calc_hvsr(times_avg, east_avg, north_avg, vert_avg, sample_spacing)
-            plot_station_hvsr(start_date, station, freqs, east_avg, north_avg, vert_avg, hvsr)
+
+            #freqs, hvsr = calc_hvsr(times_avg[:500], east_avg[:500], north_avg[:500], vert_avg[:500], sample_spacing)
+            #plot_station_hvsr(start_date, station, freqs, east_avg[:500], north_avg[:500], vert_avg[:500], hvsr)
 
     print("done")
     

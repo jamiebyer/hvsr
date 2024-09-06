@@ -79,13 +79,14 @@ def plot_station_timeseries(
         east, 
         north, 
         vert, 
-        times_avg,
-        east_avg,
-        north_avg,
-        vert_avg,
+        times_avg=None,
+        east_avg=None,
+        north_avg=None,
+        vert_avg=None,
         dir_path="./figures/"
     ):
 
+    plot_average = times_avg is not None
     make_output_folder(dir_path, str(station) + "_raw")
     
     plt.clf()
@@ -97,17 +98,20 @@ def plot_station_timeseries(
 
     plt.subplot(3, 1, 1)
     plt.plot(times, east, label="east")
-    plt.plot(times_avg, east_avg, label="east avg")
+    if plot_average:
+        plt.plot(times_avg, east_avg, label="east avg")
     plt.title("east")
 
     plt.subplot(3, 1, 2)
     plt.plot(times, north, label="north")
-    plt.plot(times_avg, north_avg, label="north avg")
+    if plot_average:
+        plt.plot(times_avg, north_avg, label="north avg")
     plt.title("north")
     
     plt.subplot(3, 1, 3)
     plt.plot(times, vert, label="vert")
-    plt.plot(times_avg, vert_avg, label="vert avg")
+    if plot_average:
+        plt.plot(times_avg, vert_avg, label="vert avg")
     plt.title("vert")
 
     plt.xlabel("time")
@@ -119,7 +123,15 @@ def plot_station_timeseries(
     path = dir_path + str(station) + "_raw/" + str(start_date.month) + "-" + str(start_date.day) + ".png"
     plt.savefig(path)
 
-def plot_station_hvsr(start_date, station, freqs, east_avg, north_avg, vert_avg, hvsr, dir_path="./figures/"):
+def plot_station_hvsr(
+        start_date, 
+        station, 
+        freqs, east_avg, 
+        north_avg, 
+        vert_avg, 
+        hvsr, 
+        dir_path="./figures/"
+    ):
     """
     """
     make_output_folder(dir_path, str(station) + "_hvsr")
@@ -128,7 +140,7 @@ def plot_station_hvsr(start_date, station, freqs, east_avg, north_avg, vert_avg,
     shifted_freqs = fft.fftshift(freqs)
 
     plt.subplot(2, 1, 1)
-    plt.plot(shifted_freqs, fft.fft(east_avg))
+    plt.plot(shifted_freqs[10:], fft.fft(east_avg)[10:])
 
     plt.subplot(2, 1, 2)
     # get horizontal-vertical ratio

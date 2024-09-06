@@ -6,8 +6,6 @@ import numpy as np
 from raydec import raydec
 
 
-
-
 def test_raydec():
     #f_min = 1 # Hz
     #f_max = 20 # Hz
