@@ -1,3 +1,8 @@
+# *** can this be in init?
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
+
 from obspy import read
 import xml.etree.ElementTree as ET
 import numpy as np
@@ -8,6 +13,8 @@ import pandas as pd
 import os
 from raydec import raydec
 import time
+from scipy import fft
+from plotting import plot_station_timeseries, plot_station_hvsr
 
 
 def is_int(val):
@@ -158,29 +165,24 @@ def parse_data():
     # 453025390.0029.2024.07.04.00.00.00.000.E.miniseed
     # save each station to a separate file
 
-    file_mapping = pd.read_csv("../data/file_information.csv")
+    # input station list and file list to save
 
-    stations = np.unique(file_mapping["stations"])
+    file_mapping = pd.read_csv("./data/file_information.csv", index_col=0)
+    file_names = file_mapping.columns
+    stations = file_mapping.loc["station"]
+    unique_stations = np.unique(stations)
  
-    directory = r"../../../gilbert_lab/Whitehorse_ANT/"
+    directory = r"./../../gilbert_lab/Whitehorse_ANT/"
     # iterate over files in directory
-    #station_dict = {}
-    for station in [stations[0]]:
+    for station in [stations[0]]: # unique_stations
         print(station)
-        '''
-        station_dict[station] = {
-            "time": [],
-            "east": [],
-            "north": [],
-            "vert": [],
-        }
-        '''
-        file_names = file_mapping.loc[file_mapping["stations"] == station]["file_names"]
-        
+        file_names = file_names[stations == station]
+        #for f in file_names:
+        #    print(f)
         # save each file to csv
-        for file_name in file_names[:2]:
+        for file_name in file_names:
             print("\n", file_name)
-            # read in data        
+            # read in data
             stream_east = read(directory + file_name, format="mseed")
             stream_north = read(directory + file_name.replace(".E.", ".N."), format="mseed")
             stream_vert = read(directory + file_name.replace(".E.", ".Z."), format="mseed")
@@ -193,75 +195,53 @@ def parse_data():
             trace_vert = stream_vert.traces[0]
             
             # make sure all directions line up for times
-            times = trace_east.times(type="matplotlib")
+            dates = trace_east.times(type="matplotlib")
+            times = trace_east.times()
 
             # starttime: 2024-06-06T18:04:52.000000Z
             # endtime: 2024-06-07T00:00:00.000000Z
             # sampling_rate: 100.0
             # delta: 0.01
-            '''
-            station_dict[station]["time"].append(list(times))
-            station_dict[station]["east"].append(list(trace_east.data))
-            station_dict[station]["north"].append(list(trace_north.data))
-            station_dict[station]["vert"].append(list(trace_vert.data))
-            '''
 
             east, north, vert = trace_east.data, trace_north.data, trace_vert.data
-            start_date, sampling_rate = trace_east.stats["starttime"], trace_east.stats["sampling_rate"]
+            # *** i think sampling rate and delta are swapped in the xml..... ***
+            start_date, sampling_rate, sample_spacing = trace_east.stats["starttime"], trace_east.stats["sampling_rate"], trace_east.stats["delta"]
 
             # moving averaged
-            window_size = 30*60 / sampling_rate # 30 m
+            window_size = int(10*60 / sample_spacing) # 30 m
             convolution_kernel = np.ones(window_size)/window_size
+            times_avg = np.convolve(times, convolution_kernel, mode='valid') 
             east_avg = np.convolve(east, convolution_kernel, mode='valid')
             north_avg = np.convolve(north, convolution_kernel, mode='valid')
             vert_avg = np.convolve(vert, convolution_kernel, mode='valid')
 
-            # TIME ZONE
+            plot_station_timeseries(
+                start_date, 
+                station, 
+                times,
+                east, 
+                north, 
+                vert,
+                times_avg, 
+                east_avg,
+                north_avg,
+                vert_avg,
+            )
 
-            plt.clf()
-            plt.subplot(3, 1, 1)
-            plt.plot(times, east, label="east")
-            plt.plot(times, east_avg, label="east avg")
-            plt.subplot(3, 1, 2)
-            plt.plot(times, north, label="north")
-            plt.plot(times, north_avg, label="north avg")
-            plt.subplot(3, 1, 3)
-            plt.plot(times, vert, label="vert")
-            plt.plot(times, vert_avg, label="vert avg")
+            #freqs, hvsr = calc_hvsr(times_avg[:500], east_avg[:500], north_avg[:500], vert_avg[:500], sample_spacing)
+            #plot_station_hvsr(start_date, station, freqs, east_avg[:500], north_avg[:500], vert_avg[:500], hvsr)
 
-            plt.xlabel("time")
-            plt.ylabel("mV")
-            
-            plt.title(str(start_date))
-
-            path = "../figures/" + str(station) + "/" + str(start_date.month) + "-" + str(start_date.day) + ".png"
-            plt.savefig(path)
-
-            # get horizontal-vertical ratio
-            hvsr = calc_hvsr(east, north, vert)
-
-            plt.clf()
-            plt.plot(times, hvsr)
-
-            plt.xlabel("time")
-
-            path = "../figures/" + str(station) + "_hvsr/" + str(start_date.month) + "-" + str(start_date.day) + ".png"
-            plt.savefig(path)
-
-
-        #df = pd.DataFrame(station_dict)
-        #df.to_csv("./data/" + str(station) + ".csv")
-
-    #print("writing csvs")
-    #for station, station_dict in data_dict.items():
-    #    df = pd.DataFrame(station_dict)
-    #    #df.to_csv("./data/" + str(s).rjust(4, "0") + ".csv")
-    #    df.to_csv("./data/" + str(station) + ".csv")
     print("done")
     
-def calc_hvsr(east, north, vert):
-    hvsr = np.sqrt(east**2 + north**2)/(np.sqrt(2)*np.abs(vert))
-    return hvsr
+def calc_hvsr(times, east, north, vert, sample_spacing):
+    n_samples = len(times)
+    freqs = fft.fftfreq(n_samples, sample_spacing)
+    east_fft = fft.fft(east)
+    north_fft = fft.fft(north)
+    vert_fft = fft.fft(vert)
+
+    hvsr = np.sqrt(east_fft**2 + north_fft**2)/(np.sqrt(2)*np.abs(vert_fft))
+    return freqs, hvsr
 
 def process_data(station_dict):
     """
@@ -312,7 +292,6 @@ def process_data(station_dict):
     #filtered_data.plot()
     #plt.show()
 
-    # save results to csv
 
 def window_data():
     # window data
@@ -329,27 +308,5 @@ if __name__ == "__main__":
     run from terminal
     """
     # parse_xml()
-
     # get_file_information()
-
     parse_data()
-
-    '''
-    # read in data
-    stream_east = read("data/453025390.0029.2024.07.04.00.00.00.000.E.miniseed", format="mseed")
-    stream_north = read("data/453025390.0029.2024.07.04.00.00.00.000.N.miniseed", format="mseed")
-    stream_vert = read("data/453025390.0029.2024.07.04.00.00.00.000.Z.miniseed", format="mseed")
-    
-    trace_east = stream_east.traces[0]
-    trace_north = stream_north.traces[0]
-    trace_vert = stream_vert.traces[0]
-
-    data_dict = {
-        "time": trace_east.times(),
-        "east": trace_east.data,
-        "north": trace_north.data,
-        "vert": trace_vert.data,
-    }
-
-    process_data(data_dict)
-    '''
