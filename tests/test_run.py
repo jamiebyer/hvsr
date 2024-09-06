@@ -4,8 +4,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 
 import numpy as np
 from raydec import raydec
-
-
+import matplotlib.pyplot as plt
 
 
 def test_raydec():
@@ -44,7 +43,13 @@ def test_raydec():
 
     # add noise # check scale
     noise = np.random.normal(len(freq))
-    vel_phase += noise
+    vel_phase_noise = vel_phase + noise
+
+    # plot test wave
+    #plt.subplot(3, 1, 1)
+    plt.plot(freq, vel_phase[:, 0])
+    plt.plot(freq, vel_phase_noise[:, 0])
+    plt.show()
 
     # raydec
     filtered_data = raydec(
