@@ -5,9 +5,41 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 import numpy as np
 from raydec import raydec
 import matplotlib.pyplot as plt
+from obspy import read
 
 
 def test_raydec():
+    stream_east = read("./data/453025390.0029.2024.07.04.00.00.00.000.E.miniseed", format="mseed")
+    stream_north = read("./data/453025390.0029.2024.07.04.00.00.00.000.N.miniseed", format="mseed")
+    stream_vert = read("./data/453025390.0029.2024.07.04.00.00.00.000.Z.miniseed", format="mseed")
+    
+    trace_east = stream_east.traces[0]
+    trace_north = stream_north.traces[0]
+    trace_vert = stream_vert.traces[0]
+
+    # raydec
+    V, W = raydec(
+        vert=np.round(trace_vert.data, 7),
+        north=np.round(trace_north.data, 7),
+        east=np.round(trace_east.data, 7),
+        time=trace_east.times(),
+        fmin=1,
+        fmax=20,
+        fsteps=100,
+        cycles=10,
+        dfpar=0.1,
+        nwind=24*60
+    )
+
+    # save matrix. 
+
+    #print(V.shape, np.min(V), np.max(V))
+    print(W.shape, np.min(W), np.max(W))
+
+    plt.plot(V[:, 0], W[:, 0])
+    plt.show()
+
+def test_raydec_og():
     #f_min = 1 # Hz
     #f_max = 20 # Hz
     f_min = 0.5 # Hz
@@ -44,12 +76,6 @@ def test_raydec():
     # add noise # check scale
     noise = np.random.normal(len(freq))
     vel_phase_noise = vel_phase + noise
-
-    # plot test wave
-    #plt.subplot(3, 1, 1)
-    plt.plot(freq, vel_phase[:, 0])
-    plt.plot(freq, vel_phase_noise[:, 0])
-    plt.show()
 
     # raydec
     filtered_data = raydec(

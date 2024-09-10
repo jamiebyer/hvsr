@@ -5,6 +5,8 @@ import numpy as np
 from bs4 import BeautifulSoup
 import os
 from scipy import fft
+import plotly.express as plotly_express
+import plotly.graph_objects as go
 
 """
 TODO:
@@ -20,10 +22,6 @@ def plot_from_xml():
         file = f.read()
 
     soup = BeautifulSoup(file, 'xml')
-
-    #print(soup.__dict__.keys())
-    #print(soup.tagStack)
-
     lats = [float(lat.text) for lat in soup.find_all("Latitude")]
     lons = [float(lat.text) for lat in soup.find_all("Longitude")]
 
@@ -41,8 +39,6 @@ def plot_station_info():
     lats = df["Latitude"]
     lons = df["Longitude"]
     elevs = df["Elevation"]
-
-    plt.gcf().set_size_inches(7, 10)
     
     plt.subplot(3, 1, 1)
     for ind in range(len(sites)):
@@ -70,6 +66,42 @@ def plot_station_info():
 
     plt.tight_layout()
     plt.savefig(path)
+
+
+def plot_map_locations():
+    df = pd.read_csv("./data/parsed_xml.csv")
+    path = "./figures/station_map_locations.html"
+
+    fig = go.Figure(go.Scattermap(
+        lat=df["Latitude"],
+        lon=df["Longitude"],
+        mode='markers',
+        text=df["Site"],
+    ))
+    fig.update_layout(
+        map=dict(
+            center=dict(
+                lat=60.74,
+                lon=-135.08
+            ),
+            zoom=10
+        ),
+    )
+    fig.write_html(path)
+
+def plot_3d_locations():
+    df = pd.read_csv("./data/parsed_xml.csv")
+    path = "./figures/station_3d_locations.html"
+
+    fig = plotly_express.scatter_3d(
+        df,
+        x="Longitude", 
+        y="Latitude", 
+        z="Elevation",
+        text="Site", 
+        # mode='markers'
+    )
+    fig.write_html(path)
 
 
 def plot_station_timeseries(
@@ -123,10 +155,12 @@ def plot_station_timeseries(
     path = dir_path + str(station) + "_raw/" + str(start_date.month) + "-" + str(start_date.day) + ".png"
     plt.savefig(path)
 
-def plot_station_hvsr(
+def plot_manual_hvsr(
         start_date, 
         station, 
-        freqs, east_avg, 
+        freqs,
+        times_avg,
+        east_avg, 
         north_avg, 
         vert_avg, 
         hvsr, 
@@ -135,8 +169,14 @@ def plot_station_hvsr(
     """
     """
     make_output_folder(dir_path, str(station) + "_hvsr")
-    
     plt.clf()
+
+    plt.subplot(2, 1, 1)
+    plt.plot(times_avg, east_avg)
+    plt.plot(times_avg, north_avg)
+    plt.plot(times_avg, vert_avg)
+    plt.legend(["east", "north", "vert"])
+        
     shifted_freqs = fft.fftshift(freqs)
 
     plt.subplot(2, 1, 1)
@@ -159,8 +199,17 @@ def make_output_folder(dir_path, plot_type):
         os.mkdir(dir_path + plot_type)
 
 
+def plot_raydec():
+    pass
+
+
+
+"""
+DOWNSAMPLE FOR PLOTTING.
+"""
+
 if __name__ == "__main__":
     """
     run from terminal
     """
-    plot_station_info()
+    plot_map_locations()

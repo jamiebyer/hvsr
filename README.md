@@ -1,0 +1,1 @@
+# sensor specs: https://smartsolo.com/cp-3.html

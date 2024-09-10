@@ -14,7 +14,6 @@ import os
 from raydec import raydec
 import time
 from scipy import fft
-from plotting import plot_station_timeseries, plot_station_hvsr
 
 
 def is_int(val):
@@ -37,6 +36,12 @@ def is_date(val):
         return True
     except ValueError:
         return False
+
+
+#
+# PARSING XML
+#
+
 
 def xml_to_dict(contents, include):
     # recursively loop over xml to make dictionary.
@@ -136,6 +141,11 @@ def parse_xml(save=True):
         pd.DataFrame(stations_dict).to_csv("./data/parsed_xml.csv")
 
 
+#
+# PARSING STATION DATA
+#
+
+
 def get_file_information():
     directory = r"../../gilbert_lab/Whitehorse_ANT/"
 
@@ -159,33 +169,47 @@ def get_file_information():
     df = pd.DataFrame(data_dict)
     df.to_csv("./data/file_information.csv")
 
-def parse_data():
-    # sensor specs: https://smartsolo.com/cp-3.html
-    # parse reading in the data file name
-    # 453025390.0029.2024.07.04.00.00.00.000.E.miniseed
-    # save each station to a separate file
 
+def process_stations():
+    # save each station to a separate folder...
     # input station list and file list to save
 
     file_mapping = pd.read_csv("./data/file_information.csv", index_col=0)
     file_names = file_mapping.columns
     stations = file_mapping.loc["station"]
     unique_stations = np.unique(stations)
- 
+
     directory = r"./../../gilbert_lab/Whitehorse_ANT/"
+
+    station = unique_stations[0]
+    slice_station_data([station], [file_names[stations == station]], directory)
+    
+    print("done")
+
+def slice_station_data(
+        stations, 
+        file_names, 
+        input_dir,
+        output_dir="./figures/"
+    ):
+    """"""
     # iterate over files in directory
-    for station in [stations[0]]: # unique_stations
-        print(station)
-        file_names = file_names[stations == station]
-        #for f in file_names:
-        #    print(f)
-        # save each file to csv
+    for ind in range(len(stations)):
+        print(stations[ind])
+        file_names = file_names[ind]
+
+        station_data = {
+            "time": [],
+            "vert": [],
+            "north": [],
+            "east": [],
+        }
+
         for file_name in file_names:
-            print("\n", file_name)
             # read in data
-            stream_east = read(directory + file_name, format="mseed")
-            stream_north = read(directory + file_name.replace(".E.", ".N."), format="mseed")
-            stream_vert = read(directory + file_name.replace(".E.", ".Z."), format="mseed")
+            stream_east = read(input_dir + file_name, format="mseed")
+            stream_north = read(input_dir + file_name.replace(".E.", ".N."), format="mseed")
+            stream_vert = read(input_dir + file_name.replace(".E.", ".Z."), format="mseed")
 
             if not np.all(np.array([len(stream_east), len(stream_north), len(stream_vert)]) == 1):
                 raise ValueError
@@ -194,45 +218,71 @@ def parse_data():
             trace_north = stream_north.traces[0]
             trace_vert = stream_vert.traces[0]
             
-            # make sure all directions line up for times
             dates = trace_east.times(type="matplotlib")
             times = trace_east.times()
 
-            # starttime: 2024-06-06T18:04:52.000000Z
-            # endtime: 2024-06-07T00:00:00.000000Z
-            # sampling_rate: 100.0
-            # delta: 0.01
-
             east, north, vert = trace_east.data, trace_north.data, trace_vert.data
-            # *** i think sampling rate and delta are swapped in the xml..... ***
             start_date, sampling_rate, sample_spacing = trace_east.stats["starttime"], trace_east.stats["sampling_rate"], trace_east.stats["delta"]
 
-            # moving averaged
-            window_size = int(10*60 / sample_spacing) # 30 m
-            convolution_kernel = np.ones(window_size)/window_size
-            times_avg = np.convolve(times, convolution_kernel, mode='valid') 
-            east_avg = np.convolve(east, convolution_kernel, mode='valid')
-            north_avg = np.convolve(north, convolution_kernel, mode='valid')
-            vert_avg = np.convolve(vert, convolution_kernel, mode='valid')
+            time_slice_inds = get_time_slice(dates, times, east, north, vert)
 
-            plot_station_timeseries(
-                start_date, 
-                station, 
-                times,
-                east, 
-                north, 
-                vert,
-                times_avg, 
-                east_avg,
-                north_avg,
-                vert_avg,
-            )
+            station_data["time"].append(times[time_slice_inds])
+            station_data["vert"].append(vert[time_slice_inds])
+            station_data["north"].append(north[time_slice_inds])
+            station_data["east"].append(east[time_slice_inds])
+        
+        df = pd.DataFrame(station_data)
+        df.sort_values(by="time")
+        # sort by dates
+        # write station df to csv
+        df.to_csv(directory + "timeseries/" + str(stations[ind]))
 
-            #freqs, hvsr = calc_hvsr(times_avg[:500], east_avg[:500], north_avg[:500], vert_avg[:500], sample_spacing)
-            #plot_station_hvsr(start_date, station, freqs, east_avg[:500], north_avg[:500], vert_avg[:500], hvsr)
-
-    print("done")
+                
     
+def merge_time_data_files():
+    pass
+
+
+def get_ellipticity(
+        station,
+        fmin=1,
+        fmax=20,
+        fsteps=100,
+        cycles=10,
+        dfpar=0.1,
+    ):
+    # loop over saved time series files
+    # raydec
+    # number of windows based on size of slice
+    n_wind=24*60
+
+    raydec(
+        vert=vert[time_slice_inds],
+        north=north[time_slice_inds],
+        east=east[time_slice_inds],
+        time=times[time_slice_inds],
+        fmin=fmin,
+        fmax=fmax,
+        fsteps=fsteps,
+        cycles=cycles,
+        dfpar=dfpar,
+        nwind=n_wind
+    )
+    # save raydec
+    path = ""
+
+    np.save(path + "_freqs", V)
+    np.save(path + "_ellips", W)
+
+def moving_average():
+    # moving averaged
+    window_size = int(10*60 / sample_spacing) # 30 m
+    convolution_kernel = np.ones(window_size)/window_size
+    times_avg = np.convolve(times, convolution_kernel, mode='valid') 
+    east_avg = np.convolve(east, convolution_kernel, mode='valid')
+    north_avg = np.convolve(north, convolution_kernel, mode='valid')
+    vert_avg = np.convolve(vert, convolution_kernel, mode='valid')
+
 def calc_hvsr(times, east, north, vert, sample_spacing):
     n_samples = len(times)
     freqs = fft.fftfreq(n_samples, sample_spacing)
@@ -243,54 +293,9 @@ def calc_hvsr(times, east, north, vert, sample_spacing):
     hvsr = np.sqrt(east_fft**2 + north_fft**2)/(np.sqrt(2)*np.abs(vert_fft))
     return freqs, hvsr
 
-def process_data(station_dict):
-    """
-    - split data into windows (done by raydec?)
-    - RAYDEC is used to try to reduce effect of body waves on data
-    - average horizontal components, divide by vertical average
-    - use fourier transform to move to frequency domain
-    - can use wavelength to estimate layer thickness (or use mcmc with 1 layer model)
-    """
-    """
-    # get suggested inputs for raydec
-    CYCLES = 10
-    DFPAR = 0.1
-    NWIND such that the single time windows are about 10 minutes long
-    """
 
-    times = station_dict["time"]
-    print("times: ", np.min(times), np.max(times))
-    n_wind = np.round(times[-1] / (10*60)).astype(int)
-
-    #f = numpy.linspace(0.1, 10.0, 100)
-    #t = 1.0 / f[::-1]
-
-    freq_sampling = 1/100
-    freq_nyq = freq_sampling / 2
-
-
-    # raydec
-    filtered_data = raydec(
-        vert=station_dict["vert"],
-        north=station_dict["north"],
-        east=station_dict["east"],
-        time=station_dict["time"],
-        fmin=0.002,
-        fmax=0.0333,
-        fsteps=100,
-        cycles=10,
-        dfpar=0.1,
-        nwind=n_wind
-    )
-
-    hvsr = calc_hvsr(east, north, vert)
-
-    # Fourier transform
-
-    # use wavelength to estimate layer thickness (or use mcmc with 1 layer model)
-
-    #filtered_data.plot()
-    #plt.show()
+def get_time_slice():
+    pass
 
 
 def window_data():
@@ -309,4 +314,4 @@ if __name__ == "__main__":
     """
     # parse_xml()
     # get_file_information()
-    parse_data()
+    process_stations()
