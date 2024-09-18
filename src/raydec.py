@@ -40,15 +40,11 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
     # loop over the time windows
     for ind1 in [0]: # range(nwind):
         print("\nwindow: ", str(ind1))
-        # *** matlab detrend -> scipy
-        # *** validate the indexing <3
-        #print(north[:5])
-        vert = detrend(v1[ind1 * K : (ind1 + 1) * K], type="constant")
-        north = detrend(n1[ind1 * K : (ind1 + 1) * K], type="constant")
-        east = detrend(e1[ind1 * K : (ind1 + 1) * K], type="constant")
+
+        vert = detrend(v1[ind1 * K : (ind1 + 1) * K])
+        north = detrend(n1[ind1 * K : (ind1 + 1) * K])
+        east = detrend(e1[ind1 * K : (ind1 + 1) * K])
         time = t1[ind1 * K : (ind1 + 1) * K]
-        #print(np.sum(vert), np.sum(north), np.sum(east))
-        #print(north[:5])
 
         horizontalamp = np.zeros(fsteps)
         verticalamp = np.zeros(fsteps)
@@ -73,6 +69,7 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             DT = cycles / f
             wl = int(np.round(DT / tau))
             # int(np.ceil(Tmax * fend))
+            #print(DT, wl)
 
 
             # setting up the Chebyshev filter
@@ -100,18 +97,10 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             easts = lfilter(b, a, taper*east)
             verts = lfilter(b, a, taper*vert)
 
-            #print(norths.shape, np.min(norths), np.max(norths))
-            #print(easts.shape, np.min(easts), np.max(easts))
-            #print(verts.shape, np.min(verts), np.max(verts))
-
-            #print("K", K)#5804
             derive = (
                 np.sign(verts[1:K]) - np.sign(verts[: K - 1])
             ) / 2  # finding the negative-positive zero crossings on the vertical component
             
-            #print(np.min(verts), np.max(verts))
-            #print(np.min(derive), np.max(derive))
-            #print(derive.shape) #5803
             vertsum = np.zeros(wl)
             horsum = np.zeros(wl)
 
@@ -124,8 +113,10 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             # wl number of iterations needed to get total window time
             #print(len(derive)) #5803
 
+            #print(int(np.ceil(1 / (4 * f * tau))), len(derive) - wl)
             indices = np.arange(int(np.ceil(1 / (4 * f * tau))), len(derive) - wl)
-            #print(np.min(indices), np.max(indices)) #2, 5752
+            #if len(indices) > 0:
+            #    print(np.min(indices), np.max(indices), indices.shape) #2, 5752
             #print(easts.shape, np.min(easts), np.max(easts))
             for ind in range(len(indices)):
                 # we need to subtract (1 / (4 * f * tau) from east and north components to 
@@ -171,14 +162,17 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
                 if correlation >= -1:
                     vertsum = vertsum + correlation**2 * vsig
                     horsum = horsum + correlation**2 * hsig
-                    #print(vertsum[:5])
 
                 #thetas[findex, ind] = theta
                 #corr[findex, ind] = correlation
                 #dvmax[findex] = ind
                 #ampl[findex, ind] = np.sum(vsig**2 + hsig**2)
 
+            #klimit = np.vectorize(round)
             klimit = int(np.round(DT / tau))
+            #print(DT, tau)
+            #klimit = int(round(DT / tau))
+            #print(klimit)
             verticalamp[findex] = np.sqrt(np.sum(vertsum[:klimit] ** 2))
             horizontalamp[findex] = np.sqrt(np.sum(horsum[:klimit] ** 2))
             #print(verticalamp[findex])
