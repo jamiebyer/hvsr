@@ -34,11 +34,10 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
     flist = np.zeros(fsteps)
     constlog = (fend / fstart) ** (1 / (fsteps - 1))
     fl = fstart * constlog ** (np.cumsum(np.ones((fsteps, nwind)), axis=0) - 1)
-    #fl = np.repeat([np.logspace(fstart, fend, fsteps)], nwind, axis=0).T
     el = np.zeros((fsteps, nwind))
 
     # loop over the time windows
-    for ind1 in [0]: # range(nwind):
+    for ind1 in range(nwind):
         print("\nwindow: ", str(ind1))
 
         vert = detrend(v1[ind1 * K : (ind1 + 1) * K])
@@ -59,7 +58,6 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
         # loop over the frequencies
         for findex in range(fsteps):
             f = fl[findex, ind1]
-            #print("f", f)#20
 
             # setting up the filter limits
             df = dfpar * f
@@ -68,9 +66,6 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             flist[findex] = f
             DT = cycles / f
             wl = int(np.round(DT / tau))
-            # int(np.ceil(Tmax * fend))
-            #print(DT, wl)
-
 
             # setting up the Chebyshev filter
             Wp = [fmin + (fmax - fmin) / 10, fmax - (fmax - fmin) / 10] / fnyq
@@ -80,9 +75,6 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
 
             N, Wn = cheb1ord(Wp, Ws, Rp, Rs)
             b, a = cheby1(N, 0.5, Wn, btype="bandpass")
-            # w, h = signal.freqz(b, a)
-
-            #taper1 = np.linspace(0, 1, int(len(time)/100))
             
             taper_spacing = 1 / np.round(len(time)/100)
             taper1 = np.arange(0, 1 + taper_spacing, taper_spacing)
@@ -90,8 +82,6 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             taper3 = np.flip(taper1)
             taper = np.concatenate((taper1, taper2, taper3))
 
-            #print(np.min(vert), np.max(vert)) #-0.0334, 0.032
-            
             # filtering the signals
             norths = lfilter(b, a, taper*north)
             easts = lfilter(b, a, taper*east)
@@ -105,19 +95,8 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             horsum = np.zeros(wl)
 
             # loop over all zero crossings
-            # *** check bounds
-
-            # int(np.ceil(Tmax * fend))
-
-            # why and how is it shape wl
-            # wl number of iterations needed to get total window time
-            #print(len(derive)) #5803
-
-            #print(int(np.ceil(1 / (4 * f * tau))), len(derive) - wl)
             indices = np.arange(int(np.ceil(1 / (4 * f * tau))), len(derive) - wl)
-            #if len(indices) > 0:
-            #    print(np.min(indices), np.max(indices), indices.shape) #2, 5752
-            #print(easts.shape, np.min(easts), np.max(easts))
+
             for ind in range(len(indices)):
                 # we need to subtract (1 / (4 * f * tau) from east and north components to 
                 # account for the 90 degree phase shift between vertical and horizontal 
@@ -133,13 +112,8 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
                 esig = easts[einds : einds + wl]
                 a = np.arange(einds, einds + wl)
 
-                #print(index, int(np.floor(1 / (4 * f * tau))), einds+wl) # 5749, 1, 5798
-                
-                #print(a.shape, np.min(a), np.max(a)) #50, 5748, 5797
-
                 ninds = index - int(np.floor(1 / (4 * f * tau)))
                 nsig = norths[ninds : ninds + wl]
-                #print(np.sum(nsig))
 
                 integral1 = np.sum(vsig * esig)
                 integral2 = np.sum(vsig * nsig)
@@ -151,9 +125,6 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
 
                 theta = (theta + np.pi) % (2 * np.pi)  # The azimuth is well estimated in this way (assuming retrograde)
                 hsig = np.sin(theta) * esig + np.cos(theta) * nsig  # The horizontal signal is projected in the azimuth direction.
-                #print(hsig[:5])
-                #print(theta)
-                #print(np.sum(hsig))
 
                 correlation = np.sum(vsig * hsig) / np.sqrt(
                     np.sum(vsig * vsig) * np.sum(hsig * hsig)
@@ -168,14 +139,9 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
                 #dvmax[findex] = ind
                 #ampl[findex, ind] = np.sum(vsig**2 + hsig**2)
 
-            #klimit = np.vectorize(round)
             klimit = int(np.round(DT / tau))
-            #print(DT, tau)
-            #klimit = int(round(DT / tau))
-            #print(klimit)
             verticalamp[findex] = np.sqrt(np.sum(vertsum[:klimit] ** 2))
             horizontalamp[findex] = np.sqrt(np.sum(horsum[:klimit] ** 2))
-            #print(verticalamp[findex])
 
         ellist = horizontalamp / verticalamp
 

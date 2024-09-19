@@ -196,8 +196,13 @@ def plot_raydec():
         make_output_folder("./figures/" + str(station) + "_raydec/")
         plt.savefig("./figures/" + str(station) + "_raydec/" + file_name.replace("csv", "png"))
 
-def plot_compare_raydec():
-    pass
+def plot_raydec():
+    df = pd.read_csv("./raydec/24025/2024-06-08.csv", index_col=0).T
+    #df = pd.read_csv("./raydec/24025/2024-06-07.csv")
+
+    plt.plot(df.index, df, c="grey", alpha=0.2)
+    plt.plot(df.index, df.mean(axis=1), c="black")
+    plt.show()
 
 """
 DOWNSAMPLE FOR PLOTTING.
