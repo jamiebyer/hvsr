@@ -6,41 +6,66 @@ import numpy as np
 from raydec import raydec
 import matplotlib.pyplot as plt
 from obspy import read
+from scipy.io import loadmat
+
+import pandas as pd
 
 
 def test_raydec():
-    stream_east = read("./data/453025390.0029.2024.07.04.00.00.00.000.E.miniseed", format="mseed")
-    stream_north = read("./data/453025390.0029.2024.07.04.00.00.00.000.N.miniseed", format="mseed")
-    stream_vert = read("./data/453025390.0029.2024.07.04.00.00.00.000.Z.miniseed", format="mseed")
+    df = pd.read_csv("./timeseries/24025/2024-06-18.csv")
+
+    total_seconds = df.iloc[-1, df.columns.get_loc("times")]
+    n_wind=int(np.round(total_seconds/30)) # 30 second windows
     
-    trace_east = stream_east.traces[0]
-    trace_north = stream_north.traces[0]
-    trace_vert = stream_vert.traces[0]
-
-    times = trace_east.times()
-    n_wind=int(np.round(times[-1])/30) # 30 second windows
-
     # raydec
     V, W = raydec(
-        vert=trace_vert.data,
-        north=trace_north.data,
-        east=trace_east.data,
-        time=times,
-        fmin=0.0001,
-        fmax=50,
-        fsteps=1000,
+        vert=df["vert"],
+        north=df["north"],
+        east=df["east"],
+        time=df["times"],
+        fmin=0.01,
+        fmax=20,
+        fsteps=100,
         cycles=10,
         dfpar=0.1,
         nwind=n_wind
     )
-
+    
     # save matrix. 
+    freqs = V[:, 0]
+    ellips = W
 
-    #print(V.shape, np.min(V), np.max(V))
-    print(W.shape, np.min(W), np.max(W))
-
-    plt.plot(V[:, 0], W[:, 0])
-    plt.show()
+    df = pd.DataFrame(ellips, index=freqs)
+    df.to_csv("./tests/python_test_file.csv")
 
 
-test_raydec()
+def compare_raydec():
+    python_results = pd.read_csv("./tests/python_test_file.csv", index_col=0)
+    matlab_results = loadmat("./tests/matlab_test_file.mat")
+
+    # checking that the frequencies match between matlab and python raydec
+    python_freqs = python_results.index.values
+    python_ellips = python_results.values
+
+    matlab_freqs = matlab_results["V"][:, 0]
+    matlab_ellips = matlab_results["W"]
+
+    assert np.all(np.isclose(python_freqs, matlab_freqs))
+
+    # check that ellipticities match
+    py_e = python_ellips
+    py_inds = not list(np.isnan(py_e))
+    py_e = py_e[py_inds]
+
+    mat_e = matlab_ellips
+    mat_inds = not list(np.isnan(mat_e))
+    mat_e = mat_e[mat_inds]
+
+    assert np.all(np.isclose(py_e, mat_e))
+
+
+if __name__ == "__main__":
+    """
+    run from terminal
+    """
+    compare_raydec()

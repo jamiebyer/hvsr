@@ -15,6 +15,9 @@ TODO:
 - add unit information
 """
 
+"""
+RAW DATA AND STATION INFORMATION
+"""
 
 def plot_from_xml():
     path = "./data/FDSN_Information.xml"
@@ -156,42 +159,10 @@ def plot_station_timeseries(
     path = dir_path + str(station) + "_raw/" + str(start_date.month) + "-" + str(start_date.day) + ".png"
     plt.savefig(path)
 
-def plot_manual_hvsr(
-        start_date, 
-        station, 
-        freqs,
-        times_avg,
-        east_avg, 
-        north_avg, 
-        vert_avg, 
-        hvsr, 
-        dir_path="./figures/"
-    ):
-    """
-    """
-    make_output_folder(dir_path, str(station) + "_hvsr")
-    plt.clf()
 
-    plt.subplot(2, 1, 1)
-    plt.plot(times_avg, east_avg)
-    plt.plot(times_avg, north_avg)
-    plt.plot(times_avg, vert_avg)
-    plt.legend(["east", "north", "vert"])
-        
-    shifted_freqs = fft.fftshift(freqs)
-
-    plt.subplot(2, 1, 1)
-    plt.plot(shifted_freqs[10:], fft.fft(east_avg)[10:])
-
-    plt.subplot(2, 1, 2)
-    # get horizontal-vertical ratio
-    # would be with the fft transformed components
-
-    plt.plot(shifted_freqs, fft.fftshift(hvsr))
-
-    path = "./figures/" + str(station) + "_hvsr/" + str(start_date.month) + "-" + str(start_date.day) + ".png"
-    plt.savefig(path)
-
+"""
+PLOTS OF RAYDEC PROCESSING
+"""
 
 def plot_timeseries_slice():
     station = 24025
@@ -225,6 +196,13 @@ def plot_raydec():
         make_output_folder("./figures/" + str(station) + "_raydec/")
         plt.savefig("./figures/" + str(station) + "_raydec/" + file_name.replace("csv", "png"))
 
+def plot_raydec():
+    df = pd.read_csv("./raydec/24025/2024-06-08.csv", index_col=0).T
+    #df = pd.read_csv("./raydec/24025/2024-06-07.csv")
+
+    plt.plot(df.index, df, c="grey", alpha=0.2)
+    plt.plot(df.index, df.mean(axis=1), c="black")
+    plt.show()
 
 """
 DOWNSAMPLE FOR PLOTTING.
