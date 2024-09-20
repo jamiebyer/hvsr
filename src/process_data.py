@@ -278,9 +278,9 @@ def process_stations():
 
 def get_ellipticity(
         station,
-        fmin=1,
+        fmin=0.01,
         fmax=20,
-        fsteps=100,
+        fsteps=1000,
         cycles=10,
         dfpar=0.1,
     ):
@@ -288,11 +288,11 @@ def get_ellipticity(
     # raydec
     # number of windows based on size of slice
     dir_in = "./timeseries/" + str(station) + "/"
-    for file_name in os.listdir(dir_in):
+    for file_name in [os.listdir(dir_in)[2]]:
         df_in = pd.read_csv(dir_in + file_name)
 
-        df_in["times"] -= df_in["times"][0]
-        n_wind=int(np.round(df_in["times"].iloc[-1])/(20*60)) # 20 min windows
+        df_in["times"] -= df_in["times"].iloc[0]
+        n_wind=int(np.round(df_in["times"].iloc[-1]/30)) # 30 second windows
 
         freqs, ellips = raydec(
             vert=df_in["vert"],
@@ -313,36 +313,6 @@ def get_ellipticity(
         make_output_folder("./raydec/" + str(station) + "/")
         # write station df to csv
         df_out.to_csv("./raydec/" + str(station) + "/" + file_name)
-
-
-def moving_average():
-    # moving averaged
-    window_size = int(10*60 / sample_spacing) # 30 m
-    convolution_kernel = np.ones(window_size)/window_size
-    times_avg = np.convolve(times, convolution_kernel, mode='valid') 
-    east_avg = np.convolve(east, convolution_kernel, mode='valid')
-    north_avg = np.convolve(north, convolution_kernel, mode='valid')
-    vert_avg = np.convolve(vert, convolution_kernel, mode='valid')
-
-def calc_hvsr(times, east, north, vert, sample_spacing):
-    n_samples = len(times)
-    freqs = fft.fftfreq(n_samples, sample_spacing)
-    east_fft = fft.fft(east)
-    north_fft = fft.fft(north)
-    vert_fft = fft.fft(vert)
-
-    hvsr = np.sqrt(east_fft**2 + north_fft**2)/(np.sqrt(2)*np.abs(vert_fft))
-    return freqs, hvsr
-
-
-def window_data():
-    # window data
-    # try diff values for all of these parameters
-    window_length = 20 * 60  # 20m in s
-    step = window_length
-    offset = 0
-    include_partial_windows = False
-    windows = stream.slide(window_length, step, offset, include_partial_windows)
 
 
 if __name__ == "__main__":
