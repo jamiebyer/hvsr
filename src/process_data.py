@@ -149,7 +149,7 @@ def parse_xml(save=True):
 
 
 def get_file_information():
-    directory = r"../../gilbert_lab/Whitehorse_ANT/"
+    directory = r"../../gilbert_lab/Whitehorse_ANT_0/"
 
     # iterate over files in directory
     data_dict = {}
@@ -221,13 +221,13 @@ def slice_station_data(
             #dates = trace_east.times(type="matplotlib")
             dates = trace_east.times(type="utcdatetime")
             times = trace_east.times()
+            times -= times[0]
 
             east, north, vert = trace_east.data, trace_north.data, trace_vert.data
             start_date, sampling_rate, sample_spacing = trace_east.stats["starttime"], trace_east.stats["sampling_rate"], trace_east.stats["delta"]
 
             #time_slice_inds = get_time_slice(start_date, times, east, north, vert)
 
-            # *** save time ***
             df = pd.DataFrame(
                 {
                     "dates": dates,
@@ -237,20 +237,16 @@ def slice_station_data(
                     "east": east,
                 },
             )
-
+             
+             
+            # *** can probably make this more efficient... *** 
             df["dates"] = df["dates"].apply(lambda d: d.datetime)
-            #print(df["dates"][1], type(df["dates"][0]))
-            
-            #df['dates'] = pd.to_datetime(df['dates'])
-            #print(type(df["dates"][0]))
-            #df.set_index("dates")
             df["dates"]= df["dates"].dt.tz_localize(datetime.timezone.utc)
             df["dates"] = df["dates"].dt.tz_convert(tz.gettz('Canada/Yukon'))
+
             hours = np.array([d.hour for d in df["dates"]])
 
             df = df[np.all(np.array([hours >= 2, hours <= 4]), axis=0)]
-            
-            df["times"] -= df["times"][0]
 
             # *** make sure the spacing is correct and gaps have nans
             name = str(start_date).split("T")[0] + ".csv"
@@ -259,28 +255,37 @@ def slice_station_data(
             # write station df to csv
             df.to_csv(output_dir + "/" + str(stations[ind]) + "/" + name)
 
-def process_stations():
+def process_stations(
+    directory=r"./../../gilbert_lab/Whitehorse_ANT_0/"
+):
     # save each station to a separate folder...
     # input station list and file list to save
 
-    file_mapping = pd.read_csv("./data/file_information.csv", index_col=0)
-    file_names = file_mapping.columns
-    stations = file_mapping.loc["station"]
-    unique_stations = np.unique(stations)
+    file_mapping = pd.read_csv("./data/file_information.csv", index_col=0).T
+    #file_mapping.drop(0, axis=1)
+    #file_mapping.drop("Unnamed: 0", axis=1)
+    #file_mapping = file_mapping.T
+    #file_names = file_mapping.iloc[0]
+    #stations = file_mapping.iloc[1]
 
-    directory = r"./../../gilbert_lab/Whitehorse_ANT/"
+    #unique_stations = np.unique(stations)
+    #slice_station_data([station], [file_names[stations == station]], directory)
+    
+    #print(file_mapping)
+    #print(file_mapping.T)
 
-    station = unique_stations[0]
-    slice_station_data([station], [file_names[stations == station]], directory)
+    stations = [24952]
+    file_names = [file_mapping[file_mapping["station"] == s].index for s in stations]
+    slice_station_data(stations, file_names, directory)
     
     print("done")
 
 
 def get_ellipticity(
         station,
-        fmin=0.01,
-        fmax=20,
-        fsteps=1000,
+        fmin=0.001,
+        fmax=30,
+        fsteps=300,
         cycles=10,
         dfpar=0.1,
     ):
@@ -319,7 +324,7 @@ if __name__ == "__main__":
     """
     run from terminal
     """
-    # parse_xml()
-    # get_file_information()
-    get_ellipticity(24025)
-    #process_stations()
+    #parse_xml()
+    #get_file_information()
+    get_ellipticity(24952)
+    # process_stations()

@@ -20,7 +20,7 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
     DFPAR = 0.1
     NWIND such that the single time windows are about 10 minutes long
     """
-
+    # n cycles in the buffered signals
     v1, n1, e1, t1 = vert, north, east, time
 
     # setting up
