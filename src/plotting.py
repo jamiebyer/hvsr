@@ -196,13 +196,24 @@ def plot_raydec():
         make_output_folder("./figures/" + str(station) + "_raydec/")
         plt.savefig("./figures/" + str(station) + "_raydec/" + file_name.replace("csv", "png"))
 
-def plot_raydec():
-    df = pd.read_csv("./raydec/24025/2024-06-08.csv", index_col=0).T
+def plot_raydec_file(station, date):
+    plt.clf()
+    in_path = "./results/raydec/" + str(station) + "/" + str(date) + ".csv"
+    df = pd.read_csv(in_path, index_col=0).T
     #df = pd.read_csv("./raydec/24025/2024-06-07.csv")
 
     plt.plot(df.index, df, c="grey", alpha=0.2)
     plt.plot(df.index, df.mean(axis=1), c="black")
-    plt.show()
+    plt.xscale("log")
+    plt.xlabel("frequency (Hz)")
+    plt.ylabel("H/V")
+    plt.ylim([-0.5, 25])
+    plt.title(str(station) + ": " + str(date))
+    
+    out_dir = "./figures/raydec/" + str(station) + "/"
+    make_output_folder(out_dir)
+    plt.savefig(out_dir + str(date) + ".png")
+    #plt.show()
 
 """
 DOWNSAMPLE FOR PLOTTING.
@@ -212,4 +223,9 @@ if __name__ == "__main__":
     """
     run from terminal
     """
-    plot_raydec()
+    #plot_3d_locations()
+    
+    plot_raydec_file(24025, "2024-06-08")
+    plot_raydec_file(24614, "2024-06-08")
+    plot_raydec_file(24718, "2024-06-08")
+    plot_raydec_file(24952, "2024-06-08")
