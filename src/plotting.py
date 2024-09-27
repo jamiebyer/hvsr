@@ -5,9 +5,10 @@ import numpy as np
 from bs4 import BeautifulSoup
 import os
 from scipy import fft
-import plotly.express as plotly_express
+import plotly.express as px
 import plotly.graph_objects as go
 from utils import make_output_folder
+from process_data import remove_outliers, remove_spikes
 
 """
 TODO:
@@ -34,70 +35,11 @@ def plot_from_xml():
     plt.ylabel("Latitude")
     plt.show()
 
-
-def plot_station_info():
-    df = pd.read_csv("./data/parsed_xml.csv")
-    path = "./figures/station_locations.png"
-
-    sites = df["Site"]
-    lats = df["Latitude"]
-    lons = df["Longitude"]
-    elevs = df["Elevation"]
-    
-    plt.subplot(3, 1, 1)
-    for ind in range(len(sites)):
-        plt.scatter(lons[ind], lats[ind], c="blue")
-        plt.text(lons[ind] - 0.01, lats[ind] + 0.003, sites[ind])
-        
-    plt.xlabel("Longitude")
-    plt.ylabel("Latitude")
-    
-    plt.subplot(3, 1, 2)
-    for ind in range(len(sites)):
-        plt.scatter(lons[ind], elevs[ind], c="blue")
-        plt.text(lons[ind], elevs[ind], sites[ind])
-        
-    plt.xlabel("Longitude")
-    plt.ylabel("Elevation")
-    
-    plt.subplot(3, 1, 3)
-    for ind in range(len(sites)):
-        plt.scatter(lats[ind], elevs[ind], c="blue")
-        plt.text(lats[ind], elevs[ind], sites[ind])
-        
-    plt.xlabel("Latitude")
-    plt.ylabel("Elevation")
-
-    plt.tight_layout()
-    plt.savefig(path)
-
-
-def plot_map_locations():
-    df = pd.read_csv("./data/parsed_xml.csv")
-    path = "./figures/station_map_locations.html"
-
-    fig = go.Figure(go.Scattermap(
-        lat=df["Latitude"],
-        lon=df["Longitude"],
-        mode='markers',
-        text=df["Site"],
-    ))
-    fig.update_layout(
-        map=dict(
-            center=dict(
-                lat=60.74,
-                lon=-135.08
-            ),
-            zoom=10
-        ),
-    )
-    fig.write_html(path)
-
 def plot_3d_locations():
     df = pd.read_csv("./data/parsed_xml.csv")
     path = "./figures/station_3d_locations.html"
 
-    fig = plotly_express.scatter_3d(
+    fig = px.scatter_3d(
         df,
         x="Longitude", 
         y="Latitude", 
@@ -106,58 +48,6 @@ def plot_3d_locations():
         # mode='markers'
     )
     fig.write_html(path)
-
-
-def plot_station_timeseries(
-        start_date, 
-        station,
-        times, 
-        east, 
-        north, 
-        vert, 
-        times_avg=None,
-        east_avg=None,
-        north_avg=None,
-        vert_avg=None,
-        dir_path="./figures/"
-    ):
-
-    plot_average = times_avg is not None
-    make_output_folder(dir_path, str(station) + "_raw")
-    
-    plt.clf()
-    plt.gcf().set_size_inches(7, 10)
-
-    # TIME ZONE
-    # plot as time series with average
-    # plot day and night separately
-
-    plt.subplot(3, 1, 1)
-    plt.plot(times, east, label="east")
-    if plot_average:
-        plt.plot(times_avg, east_avg, label="east avg")
-    plt.title("east")
-
-    plt.subplot(3, 1, 2)
-    plt.plot(times, north, label="north")
-    if plot_average:
-        plt.plot(times_avg, north_avg, label="north avg")
-    plt.title("north")
-    
-    plt.subplot(3, 1, 3)
-    plt.plot(times, vert, label="vert")
-    if plot_average:
-        plt.plot(times_avg, vert_avg, label="vert avg")
-    plt.title("vert")
-
-    plt.xlabel("time")
-    plt.ylabel("mV")
-    
-    plt.suptitle("station: " + str(station) + "; start date:" + str(start_date.year) + "-" + str(start_date.month) + "-" + str(start_date.day))
-    plt.tight_layout
-
-    path = dir_path + str(station) + "_raw/" + str(start_date.month) + "-" + str(start_date.day) + ".png"
-    plt.savefig(path)
 
 
 """
@@ -173,59 +63,149 @@ def plot_timeseries_slice():
         plt.show()
 
 
-def plot_raydec():
-    station = 24025
-    timeseries_dir = "./timeseries/" + str(station) + "/"
-    raydec_dir = "./raydec/" + str(station) + "/"
-    for file_name in os.listdir(timeseries_dir):
-    #for file_name in os.listdir(timeseries_dir):
-        timeseries_df = pd.read_csv(timeseries_dir + file_name)
-        plt.clf()
-        plt.subplot(2, 1, 1)
-        plt.plot(timeseries_df["times"], timeseries_df["east"], alpha=0.3)
-        plt.plot(timeseries_df["times"], timeseries_df["vert"], alpha=0.3)
-        plt.plot(timeseries_df["times"], timeseries_df["north"], alpha=0.3)
+"""
+APP PLOTTING
+"""
 
-        raydec_df = pd.read_csv(raydec_dir + file_name)
+def plot_map():
+    df = pd.read_csv("./data/parsed_xml.csv")
+    #path = "./figures/station_map_locations.html"
 
-        plt.subplot(2, 1, 2)
-        freqs = pd.to_numeric(raydec_df.columns[1:])
-        plt.plot(freqs, raydec_df.iloc[0][1:])
+    fig = go.Figure(go.Scattermap(
+        lat=df["Latitude"],
+        lon=df["Longitude"],
+        mode='markers',
+        text=df["Site"],
+    ))
+    fig.update_layout(
+        map=dict(
+            center=dict(
+                lat=60.74,
+                lon=-135.08
+            ),
+            zoom=10
+        ),
+        margin=dict(l=20, r=20, t=20, b=20),
+        showlegend=False
+    )
+    fig.add_trace(go.Scattermap(lat=[None], lon=[None], mode="markers", marker_color="red"))
+    #fig.write_html(path)
+    return fig
 
-        #plt.show()
-        make_output_folder("./figures/" + str(station) + "_raydec/")
-        plt.savefig("./figures/" + str(station) + "_raydec/" + file_name.replace("csv", "png"))
 
-def plot_raydec_file(station, date):
-    plt.clf()
-    in_path = "./results/raydec/" + str(station) + "/" + str(date) + ".csv"
-    df = pd.read_csv(in_path, index_col=0).T
-    #df = pd.read_csv("./raydec/24025/2024-06-07.csv")
 
-    plt.plot(df.index, df, c="grey", alpha=0.2)
-    plt.plot(df.index, df.mean(axis=1), c="black")
-    plt.xscale("log")
-    plt.xlabel("frequency (Hz)")
-    plt.ylabel("H/V")
-    plt.ylim([-0.5, 25])
-    plt.title(str(station) + ": " + str(date))
+def plot_timeseries(station, date, max_amplitude):
+    # only do general layout once
+    # any timeseries processing for plot has to also be done before running raydec
+
+    path_timeseries = "./results/timeseries/" + str(station) + "/" + str(date) + ".csv"
+    df_timeseries = pd.read_csv(path_timeseries, index_col=0)
+
+    df_timeseries = remove_spikes(df_timeseries, max_amplitude)
+    #print(df_timeseries)
     
-    out_dir = "./figures/raydec/" + str(station) + "/"
-    make_output_folder(out_dir)
-    plt.savefig(out_dir + str(date) + ".png")
-    #plt.show()
+    outliers = df_timeseries["outliers"]
+    df_timeseries = df_timeseries.drop("outliers", axis=1)
 
-"""
-DOWNSAMPLE FOR PLOTTING.
-"""
+    df_outliers = df_timeseries[outliers == 1]
+    df_keep = df_timeseries[outliers == 0]
+
+    stats = df_keep["vert"].describe()
+    #print(stats)
+    print(df_keep)
+
+    # change to just amplitude...?
+    timeseries_fig = px.line(
+        df_keep, 
+        x="dates", 
+        y=["vert", "north", "east"],
+        color_discrete_sequence=["rgba(100, 100, 100, 0.1)"],
+    )
+
+    if df_outliers.shape[0] > 1:
+        timeseries_fig.add_traces(
+            list(px.scatter(df_outliers, x="dates", y="vert", color_discrete_sequence=["rgba(255, 0, 0, 0.5)"]).select_traces())# + 
+            #list(px.line(x=df_keep["dates"], y=stats["mean"], color_discrete_sequence=["rgba(0, 0, 255, 0.5)"]).select_traces()) +
+            #list(px.line(x=df_keep["dates"], y=stats["min"], color_discrete_sequence=["rgba(0, 0, 255, 0.5)"]).select_traces()) +
+            #list(px.line(x=df_keep["dates"], y=stats["max"], color_discrete_sequence=["rgba(0, 0, 255, 0.5)"]).select_traces())
+        )
+
+        #groups = ["vert", "north", "east", "outliers"]#, "mean", "max", "min"]
+        for ind, trace in enumerate(timeseries_fig["data"][3:]):
+            trace["legendgroup"] = "outliers" #groups[ind]
+
+    timeseries_fig.update_layout(
+        yaxis_range=[np.min(df_timeseries["vert"]), np.max(df_timeseries["vert"])],
+        #yaxis_range=[-0.3, 0.3],
+        margin=dict(l=20, r=20, t=20, b=20),
+    )
+
+    return timeseries_fig
+
+
+def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
+    # ideally the outliers are dropped and a new df is saved to read in,
+    # but after a good threshold is set
+
+    # skip nans
+    # plot raydec
+    df_raydec = df_raydec.T.dropna()
+    df_raydec.index = pd.to_numeric(df_raydec.index)
+
+    # remove outlier windows
+    df_raydec = remove_outliers(df_raydec, scale_factor)
+
+    outliers = df_raydec.loc["outliers"]
+    df_raydec = df_raydec.drop("outliers")
+
+    mean = df_raydec["mean"]
+    df_raydec = df_raydec.drop("mean", axis=1)
+    outliers = outliers.drop("mean")
+
+    df_outliers = df_raydec[outliers.index[outliers == 1]]
+    df_keep = df_raydec[outliers.index[outliers == 0]]
+
+    fig_dict["outliers"] = str(df_outliers.shape[1] /(df_outliers.shape[1] + df_keep.shape[1]))
+    
+    stats = df_keep.T.describe().T
+    
+    raydec_fig = px.line(
+        df_keep, color_discrete_sequence=["rgba(100, 100, 100, 0.2)"], log_x=True,
+    )
+
+    raydec_fig.add_traces(
+        list(px.line(df_outliers, color_discrete_sequence=["rgba(255, 0, 0, 0.2)"], log_x=True).select_traces()) + 
+        list(px.line(stats["mean"], color_discrete_sequence=["rgba(0, 0, 0, 1)"], log_x=True).select_traces()) +
+        list(px.line(stats["min"], color_discrete_sequence=["rgba(0, 0, 255, 0.5)"], log_x=True).select_traces()) +
+        list(px.line(stats["max"], color_discrete_sequence=["rgba(0, 0, 255, 0.5)"], log_x=True).select_traces())
+    )
+ 
+    groups = df_keep.shape[1] * ["keep"] + df_outliers.shape[1] * ["outliers"] + ["mean", "max", "min"]
+    for ind, trace in enumerate(raydec_fig["data"]):
+        trace["legendgroup"] = groups[ind]
+
+    raydec_fig.update_layout(
+        title=str(station) + ": " + str(date),
+        xaxis_title="frequency (Hz)",
+        yaxis_title="ellipticity",
+        yaxis_range=[0, 10],
+        margin=dict(l=20, r=20, t=20, b=20),
+        showlegend=True,
+    )
+
+    raydec_fig.add_annotation(
+        x=1, 
+        y=9,
+        text=str(fig_dict),
+        showarrow=False,
+    )
+
+    # plot confidence interval above/below
+
+    return raydec_fig
+
 
 if __name__ == "__main__":
     """
     run from terminal
     """
-    #plot_3d_locations()
-    
-    plot_raydec_file(24025, "2024-06-08")
-    plot_raydec_file(24614, "2024-06-08")
-    plot_raydec_file(24718, "2024-06-08")
-    plot_raydec_file(24952, "2024-06-08")
