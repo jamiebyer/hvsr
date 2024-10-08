@@ -1,19 +1,10 @@
-# *** can this be in init?
-#import sys
-#import os
-#sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
-
 from obspy import read
-import xml.etree.ElementTree as ET
 import numpy as np
 from bs4 import BeautifulSoup
 import datetime
-import matplotlib.pyplot as plt
 import pandas as pd
 import os
 from raydec import raydec
-import time
-from scipy import fft
 from utils import make_output_folder
 from dateutil import tz
 
@@ -172,7 +163,7 @@ def get_file_information():
     df.to_csv("./data/file_information.csv")
 
 
-def get_time_slice(start_date, time_passed, east, north, vert):
+def get_time_slice(start_date, time_passed):
     # shift to be in correct time zone
     # Convert time zone
     start_date = start_date.datetime.astimezone(tz.gettz('Canada/Yukon'))
@@ -231,7 +222,6 @@ def slice_station_data(
             },
         )
             
-            
         # *** can probably make this more efficient... *** 
         df["dates"] = df["dates"].apply(lambda d: d.datetime)
         df["dates"]= df["dates"].dt.tz_localize(datetime.timezone.utc)
@@ -250,11 +240,13 @@ def slice_station_data(
 
 def process_stations(
     directory=r"./../../gilbert_lab/Whitehorse_ANT/"
+
 ):
     # save each station to a separate folder...
     # input station list and file list to save
 
     file_mapping = pd.read_csv("./data/file_information.csv", index_col=0).T
+
     #file_mapping.drop(0, axis=1)
     #file_mapping.drop("Unnamed: 0", axis=1)
     #file_mapping = file_mapping.T
@@ -273,48 +265,86 @@ def process_stations(
 
 def get_ellipticity(
         station,
-        fmin=0.001,
-        fmax=30,
+        date,
+        fmin=0.8,
+        fmax=40,
         fsteps=300,
         cycles=10,
         dfpar=0.1,
+        len_wind=60
     ):
     # loop over saved time series files
     # raydec
     # number of windows based on size of slice
-    dir_in = "./timeseries/" + str(station) + "/"
-    for file_name in [os.listdir(dir_in)[4]]:
-        df_in = pd.read_csv(dir_in + file_name)
+    dir_in = "./results/timeseries/" + str(station) + "/" + date + ".csv"
+    df_in = pd.read_csv(dir_in).dropna()
+    if len(df_in["times"]) < 1:
+        return None
 
-        df_in["times"] -= df_in["times"][0]
-        n_wind=int(np.round(df_in["times"].iloc[-1])/30) # 30 second windows
+    times = df_in["times"].dropna().values
+    times -= times[0]
+    n_wind=int(np.round(times[-1]/len_wind))
 
-        freqs, ellips = raydec(
-            vert=df_in["vert"],
-            north=df_in["north"],
-            east=df_in["east"],
-            time=df_in["times"],
-            fmin=fmin,
-            fmax=fmax,
-            fsteps=fsteps,
-            cycles=cycles,
-            dfpar=dfpar,
-            nwind=n_wind
-        )
+    freqs, ellips = raydec(
+        vert=df_in["vert"],
+        north=df_in["north"],
+        east=df_in["east"],
+        time=times,
+        fmin=fmin,
+        fmax=fmax,
+        fsteps=fsteps,
+        cycles=cycles,
+        dfpar=dfpar,
+        nwind=n_wind
+    )
 
-        df_out = pd.DataFrame(ellips.T, columns=freqs[:, 0])
+    df = pd.DataFrame(ellips.T, columns=freqs[:, 0])
+    return df
 
-        make_output_folder("./raydec/")
-        make_output_folder("./raydec/" + str(station) + "/")
-        # write station df to csv
-        df_out.to_csv("./raydec/" + str(station) + "/" + file_name)
+
+def remove_spikes(df_timeseries, max_amplitude):
+    """
+    remove spikes from timeseries data.
+    values over a certain amplitude
+    or
+    LTA/STA
+    """
+
+    df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(int)
+    return df_timeseries
+
+        
+def remove_outliers(df_raydec, scale_factor):
+    """
+    remove outliers from phase dispersion. windows with values further than 3 std from mean
+    """
+    mean = np.mean(df_raydec, axis=1)
+    std = np.std(df_raydec, axis=1)
+    
+    #diff_from_mean = np.abs(mean - df_raydec)
+    diff_from_mean = df_raydec.sub(df_raydec.mean(axis=1), axis=0)
+
+    outlier_inds = np.any(diff_from_mean.T > scale_factor*std, axis=1)
+    outlier_inds = outlier_inds.astype(int).rename("outliers").to_frame().T
+    df_raydec = pd.concat([df_raydec, outlier_inds])
+    
+    mean_inds = (df_raydec.loc["outliers"] == 0)
+    mean = np.nanmean(df_raydec.loc[:, mean_inds], axis=1)
+    df_raydec["mean"] = mean
+    
+
+    return df_raydec
+
+
 
 
 if __name__ == "__main__":
     """
     run from terminal
     """
+    process_stations()
     #parse_xml()
     #get_file_information()
     #get_ellipticity(24952)
     process_stations()
+
