@@ -149,7 +149,7 @@ def parse_xml(save=True):
 
 
 def get_file_information():
-    directory = r"../../gilbert_lab/Whitehorse_ANT_0/"
+    directory = r"./../../gilbert_lab/Whitehorse_ANT/"
 
     # iterate over files in directory
     data_dict = {}
@@ -182,9 +182,6 @@ def get_time_slice(start_date, time_passed, east, north, vert):
     inds = (hours >= 2) and (hours <= 4)
     
     print(inds.shape, np.sum(inds))
-
-
-
     
     # look at night-time hours and find quietist(?) (would we always want quietist...?) consecutive 3h?
 
@@ -194,69 +191,65 @@ def get_time_slice(start_date, time_passed, east, north, vert):
     
 
 def slice_station_data(
-        stations, 
+        station, 
         file_names, 
         input_dir,
         output_dir="./timeseries/"
     ):
     """"""
     # iterate over files in directory
-    for ind in range(len(stations)):
-        print(stations[ind])
-        file_names = file_names[ind]
+    for file_name in file_names:
+        # read in data
+        stream_east = read(input_dir + file_name, format="mseed")
+        stream_north = read(input_dir + file_name.replace(".E.", ".N."), format="mseed")
+        stream_vert = read(input_dir + file_name.replace(".E.", ".Z."), format="mseed")
 
-        for file_name in file_names:
-            # read in data
-            stream_east = read(input_dir + file_name, format="mseed")
-            stream_north = read(input_dir + file_name.replace(".E.", ".N."), format="mseed")
-            stream_vert = read(input_dir + file_name.replace(".E.", ".Z."), format="mseed")
+        if not np.all(np.array([len(stream_east), len(stream_north), len(stream_vert)]) == 1):
+            raise ValueError
 
-            if not np.all(np.array([len(stream_east), len(stream_north), len(stream_vert)]) == 1):
-                raise ValueError
+        trace_east = stream_east.traces[0]
+        trace_north = stream_north.traces[0]
+        trace_vert = stream_vert.traces[0]
+        
+        #dates = trace_east.times(type="matplotlib")
+        dates = trace_east.times(type="utcdatetime")
+        times = trace_east.times()
+        times -= times[0]
 
-            trace_east = stream_east.traces[0]
-            trace_north = stream_north.traces[0]
-            trace_vert = stream_vert.traces[0]
+        east, north, vert = trace_east.data, trace_north.data, trace_vert.data
+        start_date, sampling_rate, sample_spacing = trace_east.stats["starttime"], trace_east.stats["sampling_rate"], trace_east.stats["delta"]
+
+        #time_slice_inds = get_time_slice(start_date, times, east, north, vert)
+
+        df = pd.DataFrame(
+            {
+                "dates": dates,
+                "times": times,
+                "vert": vert,
+                "north": north,
+                "east": east,
+            },
+        )
             
-            #dates = trace_east.times(type="matplotlib")
-            dates = trace_east.times(type="utcdatetime")
-            times = trace_east.times()
-            times -= times[0]
+            
+        # *** can probably make this more efficient... *** 
+        df["dates"] = df["dates"].apply(lambda d: d.datetime)
+        df["dates"]= df["dates"].dt.tz_localize(datetime.timezone.utc)
+        df["dates"] = df["dates"].dt.tz_convert(tz.gettz('Canada/Yukon'))
 
-            east, north, vert = trace_east.data, trace_north.data, trace_vert.data
-            start_date, sampling_rate, sample_spacing = trace_east.stats["starttime"], trace_east.stats["sampling_rate"], trace_east.stats["delta"]
+        hours = np.array([d.hour for d in df["dates"]])
 
-            #time_slice_inds = get_time_slice(start_date, times, east, north, vert)
+        df = df[np.all(np.array([hours >= 20, hours <= 8]), axis=0)]
 
-            df = pd.DataFrame(
-                {
-                    "dates": dates,
-                    "times": times,
-                    "vert": vert,
-                    "north": north,
-                    "east": east,
-                },
-            )
-             
-             
-            # *** can probably make this more efficient... *** 
-            df["dates"] = df["dates"].apply(lambda d: d.datetime)
-            df["dates"]= df["dates"].dt.tz_localize(datetime.timezone.utc)
-            df["dates"] = df["dates"].dt.tz_convert(tz.gettz('Canada/Yukon'))
-
-            hours = np.array([d.hour for d in df["dates"]])
-
-            df = df[np.all(np.array([hours >= 2, hours <= 4]), axis=0)]
-
-            # *** make sure the spacing is correct and gaps have nans
-            name = str(start_date).split("T")[0] + ".csv"
-            make_output_folder(output_dir)
-            make_output_folder(output_dir + "/" + str(stations[ind]) + "/")
-            # write station df to csv
-            df.to_csv(output_dir + "/" + str(stations[ind]) + "/" + name)
+        # *** make sure the spacing is correct and gaps have nans
+        name = str(start_date).split("T")[0] + ".csv"
+        make_output_folder(output_dir)
+        make_output_folder(output_dir + "/" + str(station) + "/")
+        # write station df to csv
+        df.to_csv(output_dir + "/" + str(station) + "/" + name)
 
 def process_stations(
-    directory=r"./../../gilbert_lab/Whitehorse_ANT_0/"
+    directory=r"./../../gilbert_lab/Whitehorse_ANT/"
 ):
     # save each station to a separate folder...
     # input station list and file list to save
@@ -267,17 +260,14 @@ def process_stations(
     #file_mapping = file_mapping.T
     #file_names = file_mapping.iloc[0]
     #stations = file_mapping.iloc[1]
+    stations = file_mapping["station"].values
+    unique_stations = np.unique(stations)
 
-    #unique_stations = np.unique(stations)
-    #slice_station_data([station], [file_names[stations == station]], directory)
-    
-    #print(file_mapping)
-    #print(file_mapping.T)
-
-    stations = [24952]
+    s = unique_stations[0]
     file_names = [file_mapping[file_mapping["station"] == s].index for s in stations]
-    slice_station_data(stations, file_names, directory)
-    
+    print(s, file_names[0])
+    slice_station_data(s, file_names[0], directory)
+
     print("done")
 
 
@@ -326,5 +316,5 @@ if __name__ == "__main__":
     """
     #parse_xml()
     #get_file_information()
-    get_ellipticity(24952)
-    # process_stations()
+    #get_ellipticity(24952)
+    process_stations()
