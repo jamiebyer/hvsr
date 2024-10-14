@@ -10,9 +10,10 @@ from layout import layout
 import pandas as pd
 import json
 import time
+import plotly.graph_objects as go
 
 from plotting import plot_timeseries, plot_raydec
-from process_data import get_ellipticity
+from process_data import get_ellipticity, write_raydec_df
 from utils import make_output_folder
 
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
@@ -25,6 +26,9 @@ app = dash.Dash(
 )
 
 app.layout = layout
+
+
+# APP WIDGET CALLBACKS
 
 @app.callback(
     Output(component_id='station', component_property='data'),
@@ -75,6 +79,7 @@ def update_map_figure(click_data, map_fig):
     return map_fig
 
 
+# TIMESERIES PLOT
 
 @app.callback(
     Output(component_id='timeseries_figure', component_property='figure'),
@@ -91,6 +96,7 @@ def update_timeseries_figure(station, date, max_amplitude):
     return timeseries_fig
 
 
+# RAYDEC PLOT
 
 @app.callback(
     Output(component_id='raydec_figure', component_property='figure'),
@@ -122,24 +128,6 @@ def update_raydec_figure(
     
     return raydec_fig
 
-def write_json(
-        raydec_info,
-        filename="./results/raydec/raydec_info.json"
-    ):
-    with open(filename,'r+') as file:
-        # First we load existing data into a dict.
-        file_data = json.load(file)
-        if (len(file_data["raydec_info"])) == 0:
-            file_data["raydec_info"].append(raydec_info)
-        else:        
-            for i in range(len(file_data["raydec_info"])):
-                if raydec_info["name"] == file_data["raydec_info"][i]["name"]:
-                    file_data["raydec_info"][i] = raydec_info
-                elif i == len(file_data["raydec_info"]) - 1:
-                    file_data["raydec_info"].append(raydec_info)
-        # Sets file's current position at offset.
-        file.seek(0)
-        json.dump(file_data, file, indent = 4)
 
 @app.callback(
     Output(component_id='raydec_dates', component_property='value'),
@@ -166,35 +154,15 @@ def write_raydec_df(
     if station is None or date is None:
         return go.Figure()
     
-    raydec_df = get_ellipticity(
-        station,
+    write_raydec_df(
+        station, 
         date,
         f_min,
         f_max,
         f_steps,
         cycles,
         df_par,
-    )
-
-    make_output_folder("./results/raydec/")
-    make_output_folder("./results/raydec/" + str(station) + "/")
-    # write station df to csv
-    #suffix = time.time().split(".")[-1]
-    #print("suffix", suffix)
-    raydec_df.to_csv("./results/raydec/" + str(station) + "/" + date + ".csv")
-
-    # python object to be appended
-    raydec_info = {
-        "name": str(station) + "/" + date,
-        "f_min": f_min,
-        "f_max": f_max,
-        "f_steps": f_steps,
-        "cycles": cycles,
-        "df_par": df_par,
-        "n_wind": raydec_df.shape
-    }
-        
-    write_json(raydec_info) 
+    ) 
 
     return date
 
