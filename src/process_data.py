@@ -433,6 +433,58 @@ def process_station_ellipticity(
     print("done")
 
 
+def stack_station_windows(station, date_range, raydec_properties):
+    # search through json for files with the correct station, dates, properties
+
+    # average the dispersion curves from each file
+
+    # calculate range in values, error
+
+    filename = "./results/raydec/raydec_info.json"
+    with open(filename, "r+") as file:
+        # First we load existing data into a dict.
+        file_data = json.load(file)
+
+    to_stack = []
+    for saved_run in range(len(file_data["raydec_info"])):
+        if raydec_info["name"] == file_data["raydec_info"][i]["name"]:
+            for k, v in raydec_properties:
+                if saved_run[k] != v:
+                    continue
+            to_stack.append(saved_run)
+
+    for s in to_stack:
+        # get csv
+
+        # append average to new df
+        pass
+
+
+def sensitivity_test(ind):
+    # try a range of frequencies, of df_par
+    station = 24614
+    date = "2024-06-15"
+
+    params = []
+    for f_min, f_max in [[0.8, 20], [20, 100]]:
+        for f_steps in [150]:
+            for cycles in [5, 10, 15]:
+                for df_par in [0.05, 0.08, 0.10, 0.12, 0.2]:
+                    for len_wind in [60, 5 * 60, 30 * 60, 60 * 60]:
+                        params.append(
+                            [
+                                f_min,
+                                f_max,
+                                f_steps,
+                                cycles,
+                                df_par,
+                                len_wind,
+                            ]
+                        )
+
+    write_raydec_df(station, date, *params[ind])
+
+
 if __name__ == "__main__":
     """
     run from terminal
@@ -444,4 +496,5 @@ if __name__ == "__main__":
 
     ind = int(sys.argv[1])
 
-    process_station_ellipticity(ind)
+    # process_station_ellipticity(ind)
+    sensitivity_test(ind)
