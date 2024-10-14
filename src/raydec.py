@@ -36,28 +36,29 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
     fl = fstart * constlog ** (np.cumsum(np.ones((fsteps, nwind)), axis=0) - 1)
     el = np.zeros((fsteps, nwind))
 
+    # results_info = {}
     # loop over the time windows
-    for ind1 in range(nwind):
-        print("\nwindow: ", str(ind1))
+    for wind_ind in range(nwind):
+        print("\nwindow: ", str(wind_ind))
 
-        vert = detrend(v1[ind1 * K : (ind1 + 1) * K])
-        north = detrend(n1[ind1 * K : (ind1 + 1) * K])
-        east = detrend(e1[ind1 * K : (ind1 + 1) * K])
-        time = t1[ind1 * K : (ind1 + 1) * K]
+        vert = detrend(v1[wind_ind * K : (wind_ind + 1) * K])
+        north = detrend(n1[wind_ind * K : (wind_ind + 1) * K])
+        east = detrend(e1[wind_ind * K : (wind_ind + 1) * K])
+        time = t1[wind_ind * K : (wind_ind + 1) * K]
 
         horizontalamp = np.zeros(fsteps)
         verticalamp = np.zeros(fsteps)
 
-        Tmax = np.max(time)
-        #weird_index = int(np.ceil(Tmax * fend))
-        #thetas = np.zeros((fsteps, weird_index))
-        #corr = np.zeros((fsteps, weird_index))
-        #ampl = np.zeros((fsteps, weird_index))
-        #dvmax = np.zeros(fsteps)
+        # Tmax = np.max(time)
+        # weird_index = int(np.ceil(Tmax * fend))
+        # thetas = np.zeros((fsteps, weird_index))
+        # corr = np.zeros((fsteps, weird_index))
+        # ampl = np.zeros((fsteps, weird_index))
+        # dvmax = np.zeros(fsteps)
 
         # loop over the frequencies
         for findex in range(fsteps):
-            f = fl[findex, ind1]
+            f = fl[findex, wind_ind]
 
             # setting up the filter limits
             df = dfpar * f
@@ -75,22 +76,22 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
 
             N, Wn = cheb1ord(Wp, Ws, Rp, Rs)
             b, a = cheby1(N, 0.5, Wn, btype="bandpass")
-            
-            taper_spacing = 1 / np.round(len(time)/100)
+
+            taper_spacing = 1 / np.round(len(time) / 100)
             taper1 = np.arange(0, 1 + taper_spacing, taper_spacing)
-            taper2 = np.ones(len(time)- 2*len(taper1))
+            taper2 = np.ones(len(time) - 2 * len(taper1))
             taper3 = np.flip(taper1)
             taper = np.concatenate((taper1, taper2, taper3))
 
             # filtering the signals
-            norths = lfilter(b, a, taper*north)
-            easts = lfilter(b, a, taper*east)
-            verts = lfilter(b, a, taper*vert)
+            norths = lfilter(b, a, taper * north)
+            easts = lfilter(b, a, taper * east)
+            verts = lfilter(b, a, taper * vert)
 
             derive = (
                 np.sign(verts[1:K]) - np.sign(verts[: K - 1])
             ) / 2  # finding the negative-positive zero crossings on the vertical component
-            
+
             vertsum = np.zeros(wl)
             horsum = np.zeros(wl)
 
@@ -98,8 +99,8 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
             indices = np.arange(int(np.ceil(1 / (4 * f * tau))), len(derive) - wl)
 
             for ind in range(len(indices)):
-                # we need to subtract (1 / (4 * f * tau) from east and north components to 
-                # account for the 90 degree phase shift between vertical and horizontal 
+                # we need to subtract (1 / (4 * f * tau) from east and north components to
+                # account for the 90 degree phase shift between vertical and horizontal
                 # components. this means index needs to be at least (1 / (4 * f * tau)
                 index = indices[ind]
 
@@ -108,7 +109,7 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
 
                 vsig = verts[index : index + wl]
 
-                einds = index - int(np.floor(1 / (4 * f * tau))) # 5748
+                einds = index - int(np.floor(1 / (4 * f * tau)))  # 5748
                 esig = easts[einds : einds + wl]
                 a = np.arange(einds, einds + wl)
 
@@ -118,13 +119,17 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
                 integral1 = np.sum(vsig * esig)
                 integral2 = np.sum(vsig * nsig)
 
-                theta = np.arctan(integral1/integral2)
+                theta = np.arctan(integral1 / integral2)
 
                 if integral2 < 0:
                     theta = theta + np.pi
 
-                theta = (theta + np.pi) % (2 * np.pi)  # The azimuth is well estimated in this way (assuming retrograde)
-                hsig = np.sin(theta) * esig + np.cos(theta) * nsig  # The horizontal signal is projected in the azimuth direction.
+                theta = (theta + np.pi) % (
+                    2 * np.pi
+                )  # The azimuth is well estimated in this way (assuming retrograde)
+                hsig = (
+                    np.sin(theta) * esig + np.cos(theta) * nsig
+                )  # The horizontal signal is projected in the azimuth direction.
 
                 correlation = np.sum(vsig * hsig) / np.sqrt(
                     np.sum(vsig * vsig) * np.sum(hsig * hsig)
@@ -134,10 +139,10 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
                     vertsum = vertsum + correlation**2 * vsig
                     horsum = horsum + correlation**2 * hsig
 
-                #thetas[findex, ind] = theta
-                #corr[findex, ind] = correlation
-                #dvmax[findex] = ind
-                #ampl[findex, ind] = np.sum(vsig**2 + hsig**2)
+                # thetas[findex, ind] = theta
+                # corr[findex, ind] = correlation
+                # dvmax[findex] = ind
+                # ampl[findex, ind] = np.sum(vsig**2 + hsig**2)
 
             klimit = int(np.round(DT / tau))
             verticalamp[findex] = np.sqrt(np.sum(vertsum[:klimit] ** 2))
@@ -145,8 +150,8 @@ def raydec(vert, north, east, time, fmin, fmax, fsteps, cycles, dfpar, nwind):
 
         ellist = horizontalamp / verticalamp
 
-        fl[:, ind1] = flist
-        el[:, ind1] = ellist
+        fl[:, wind_ind] = flist
+        el[:, wind_ind] = ellist
 
     V = fl
     W = el
