@@ -7,6 +7,9 @@ import os
 from raydec import raydec
 from utils import make_output_folder
 from dateutil import tz
+import sys
+import json
+import time
 
 
 def is_int(val):
@@ -33,7 +36,7 @@ def is_date(val):
         return False
 
 
-# PARSING XML
+####### PARSING XML ######
 
 
 def xml_to_dict(contents, include):
@@ -136,9 +139,7 @@ def parse_xml(save=True):
         pd.DataFrame(stations_dict).to_csv("./data/parsed_xml.csv")
 
 
-#
-# PARSING STATION DATA
-#
+###### GET MAPPING OF STATION AND FILES ######
 
 
 def get_file_information():
@@ -163,6 +164,9 @@ def get_file_information():
         }
     df = pd.DataFrame(data_dict)
     df.to_csv("./data/file_information.csv")
+
+
+###### TIMESERIES PROCESSING ######
 
 
 def get_time_slice(start_date, time_passed):
@@ -201,7 +205,6 @@ def slice_station_data(station, file_names, input_dir, output_dir="./timeseries/
         trace_north = stream_north.traces[0]
         trace_vert = stream_vert.traces[0]
 
-        # dates = trace_east.times(type="matplotlib")
         dates = trace_east.times(type="utcdatetime")
         times = trace_east.times()
         times -= times[0]
@@ -232,7 +235,7 @@ def slice_station_data(station, file_names, input_dir, output_dir="./timeseries/
 
         hours = np.array([d.hour for d in df["dates"]])
 
-        df = df[np.all(np.array([hours >= 20, hours <= 8]), axis=0)]
+        df = df[np.any(np.array([hours >= 20, hours <= 8]), axis=0)]
 
         # *** make sure the spacing is correct and gaps have nans
         name = str(start_date).split("T")[0] + ".csv"
@@ -242,26 +245,36 @@ def slice_station_data(station, file_names, input_dir, output_dir="./timeseries/
         df.to_csv(output_dir + "/" + str(station) + "/" + name)
 
 
-def process_stations(directory=r"./../../gilbert_lab/Whitehorse_ANT/"):
+def remove_spikes(df_timeseries, max_amplitude):
+    """
+    remove spikes from timeseries data.
+    values over a certain amplitude
+    or
+    LTA/STA
+    """
+
+    df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
+        int
+    )
+    return df_timeseries
+
+
+def process_station_timeseries(ind, directory=r"./data/Whitehorse_ANT/"):
     # save each station to a separate folder...
     # input station list and file list to save
 
     file_mapping = pd.read_csv("./data/file_information.csv", index_col=0).T
-
-    # file_mapping.drop(0, axis=1)
-    # file_mapping.drop("Unnamed: 0", axis=1)
-    # file_mapping = file_mapping.T
-    # file_names = file_mapping.iloc[0]
-    # stations = file_mapping.iloc[1]
     stations = file_mapping["station"].values
     unique_stations = np.unique(stations)
 
-    s = unique_stations[0]
-    file_names = [file_mapping[file_mapping["station"] == s].index for s in stations]
-    print(s, file_names[0])
-    slice_station_data(s, file_names[0], directory)
+    s = unique_stations[ind]
+    file_names = file_mapping[file_mapping["station"] == s].index
+    slice_station_data(s, file_names, directory)
 
     print("done")
+
+
+###### RAYDEC PROCESSING ######
 
 
 def get_ellipticity(
@@ -292,22 +305,78 @@ def get_ellipticity(
         nwind=n_wind,
     )
 
-    df = pd.DataFrame(ellips.T, columns=freqs[:, 0])
-    return df
-
-
-def remove_spikes(df_timeseries, max_amplitude):
-    """
-    remove spikes from timeseries data.
-    values over a certain amplitude
-    or
-    LTA/STA
-    """
+    df_timeseries = pd.DataFrame(ellips.T, columns=freqs[:, 0])
 
     df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
         int
     )
     return df_timeseries
+
+
+def write_json(raydec_info, filename="./results/raydec/raydec_info.json"):
+    with open(filename, "r+") as file:
+        # First we load existing data into a dict.
+        file_data = json.load(file)
+        if (len(file_data["raydec_info"])) == 0:
+            file_data["raydec_info"].append(raydec_info)
+        else:
+            for i in range(len(file_data["raydec_info"])):
+                if raydec_info["name"] == file_data["raydec_info"][i]["name"]:
+                    file_data["raydec_info"][i] = raydec_info
+                elif i == len(file_data["raydec_info"]) - 1:
+                    file_data["raydec_info"].append(raydec_info)
+        # Sets file's current position at offset.
+        file.seek(0)
+        json.dump(file_data, file, indent=4)
+
+
+def write_raydec_df(
+    station,
+    date,
+    f_min,
+    f_max,
+    f_steps,
+    cycles,
+    df_par,
+    len_wind,
+):
+    raydec_df = get_ellipticity(
+        station,
+        date,
+        f_min,
+        f_max,
+        f_steps,
+        cycles,
+        df_par,
+        len_wind,
+    )
+    if raydec_df is None:
+        return None
+
+    make_output_folder("./results/raydec/")
+    make_output_folder("./results/raydec/" + str(station) + "/")
+    # write station df to csv
+
+    suffix = str(time.time()).split(".")[-1]
+    raydec_df.to_csv(
+        "./results/raydec/" + str(station) + "/" + date + "-" + suffix + ".csv"
+    )
+
+    # python object to be appended
+    raydec_info = {
+        "name": str(station) + "/" + date,
+        "f_min": f_min,
+        "f_max": f_max,
+        "f_steps": f_steps,
+        "cycles": cycles,
+        "df_par": df_par,
+        "n_wind": raydec_df.shape,
+        "len_wind": len_wind,
+    }
+
+    write_json(raydec_info)
+
+    return date
 
 
 def remove_outliers(df_raydec, scale_factor):
@@ -331,12 +400,48 @@ def remove_outliers(df_raydec, scale_factor):
     return df_raydec
 
 
+def process_station_ellipticity(
+    ind,
+    directory=r"./results/timeseries/",
+):
+    # save each station to a separate folder...
+    # input station list and file list to save
+
+    f_min = 0.8
+    f_max = 20
+    f_steps = 300
+    cycles = 10
+    df_par = 0.1
+    len_wind = 60
+
+    station_list = []
+    for station in os.listdir(directory):
+        for date in os.listdir(directory + station):
+            station_list.append([station, date])
+
+    write_raydec_df(
+        station_list[ind][0],
+        station_list[ind][1].split(".")[0],
+        f_min,
+        f_max,
+        f_steps,
+        cycles,
+        df_par,
+        len_wind,
+    )
+
+    print("done")
+
+
 if __name__ == "__main__":
     """
     run from terminal
     """
-    process_stations()
-    # parse_xml()
-    # get_file_information()
-    # get_ellipticity(24952)
-    process_stations()
+
+    # #SBATCH --array=1-32 #838
+    # python src/process_data.py $SLURM_ARRAY_TASK_ID
+    # sbatch slice_timeseries_job.slurm
+
+    ind = int(sys.argv[1])
+
+    process_station_ellipticity(ind)

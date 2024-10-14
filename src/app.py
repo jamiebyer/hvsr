@@ -9,9 +9,11 @@ import os
 from layout import layout
 import pandas as pd
 import json
+import time
+import plotly.graph_objects as go
 
 from plotting import plot_timeseries, plot_raydec
-from process_data import get_ellipticity
+from process_data import get_ellipticity, write_raydec_df
 from utils import make_output_folder
 
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
@@ -24,6 +26,9 @@ app = dash.Dash(
 )
 
 app.layout = layout
+
+
+# APP WIDGET CALLBACKS
 
 
 @app.callback(
@@ -76,6 +81,9 @@ def update_map_figure(click_data, map_fig):
     return map_fig
 
 
+# TIMESERIES PLOT
+
+
 @app.callback(
     Output(component_id="timeseries_figure", component_property="figure"),
     Input(component_id="station", component_property="data"),
@@ -89,6 +97,9 @@ def update_timeseries_figure(station, date, max_amplitude):
     timeseries_fig = plot_timeseries(station, date, max_amplitude)
 
     return timeseries_fig
+
+
+# RAYDEC PLOT
 
 
 @app.callback(
@@ -152,7 +163,7 @@ def write_raydec_df(station, date, f_min, f_max, f_steps, cycles, df_par, _):
     if station is None or date is None:
         return go.Figure()
 
-    raydec_df = get_ellipticity(
+    write_raydec_df(
         station,
         date,
         f_min,
