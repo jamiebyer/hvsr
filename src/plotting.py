@@ -1,24 +1,15 @@
-from obspy import read, Stream
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
 import os
-from scipy import fft
 import plotly.express as px
 import plotly.graph_objects as go
-from utils import make_output_folder
-from process_data import remove_outliers, remove_spikes
+from timeseries_processing import remove_spikes
+from ellipticity_processing import remove_window_outliers
 
-"""
-TODO:
-- set up linters.
-- add unit information
-"""
 
-"""
-RAW DATA AND STATION INFORMATION
-"""
+###### PLOTTING STATION LOCATIONS ######
 
 
 def plot_from_xml():
@@ -52,23 +43,7 @@ def plot_3d_locations():
     fig.write_html(path)
 
 
-"""
-PLOTS OF RAYDEC PROCESSING
-"""
-
-
-def plot_timeseries_slice():
-    station = 24025
-    dir_in = "./timeseries/" + str(station) + "/"
-    for file_name in os.listdir(dir_in):
-        df = pd.read_csv(dir_in + file_name)
-        plt.plot(df["times"], df["east"])
-        plt.show()
-
-
-"""
-APP PLOTTING
-"""
+###### APP PLOTTING ######
 
 
 def plot_map():
@@ -101,37 +76,48 @@ def plot_map():
 def plot_timeseries(station, date, max_amplitude):
     # only do general layout once
     # any timeseries processing for plot has to also be done before running raydec
+    # *** only read in the csv once ***
 
     path_timeseries = "./results/timeseries/" + str(station) + "/" + str(date) + ".csv"
-    df_timeseries = pd.read_csv(path_timeseries, index_col=0)
+    df_timeseries = pd.read_csv(path_timeseries, index_col=1)
+    df_timeseries.index = pd.to_datetime(
+        df_timeseries.index, format="ISO8601"  # format="%Y-%m-%d %H:%M:%S.%f%z"
+    )
 
-    df_timeseries = remove_spikes(df_timeseries, max_amplitude)
-    # print(df_timeseries)
+    # df_timeseries = df_timeseries[df_timeseries.index.hour <= 2]
 
-    outliers = df_timeseries["outliers"]
-    df_timeseries = df_timeseries.drop("outliers", axis=1)
+    df_timeseries = df_timeseries.resample("1S").mean()
 
-    df_outliers = df_timeseries[outliers == 1]
-    df_keep = df_timeseries[outliers == 0]
+    # df_timeseries = remove_spikes(df_timeseries, max_amplitude)
+
+    # downsample for plotting
+    # df_timeseries = df_timeseries.resample("5min")
+
+    # outliers = df_timeseries["outliers"]
+    # df_timeseries = df_timeseries.drop("outliers", axis=1)
+
+    # df_outliers = df_timeseries[outliers == 1]
+    # df_keep = df_timeseries[outliers == 0]
+    df_keep = df_timeseries
 
     stats = df_keep["vert"].describe()
     # print(stats)
-    print(df_keep)
 
     # change to just amplitude...?
     timeseries_fig = px.line(
         df_keep,
-        x="dates",
+        x=df_keep.index,
         y=["vert", "north", "east"],
         color_discrete_sequence=["rgba(100, 100, 100, 0.1)"],
     )
 
+    """
     if df_outliers.shape[0] > 1:
         timeseries_fig.add_traces(
             list(
                 px.scatter(
                     df_outliers,
-                    x="dates",
+                    x=df_outliers.index,
                     y="vert",
                     color_discrete_sequence=["rgba(255, 0, 0, 0.5)"],
                 ).select_traces()
@@ -144,7 +130,22 @@ def plot_timeseries(station, date, max_amplitude):
         # groups = ["vert", "north", "east", "outliers"]#, "mean", "max", "min"]
         for ind, trace in enumerate(timeseries_fig["data"][3:]):
             trace["legendgroup"] = "outliers"  # groups[ind]
-
+    """
+    timeseries_fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list(
+                [
+                    dict(count=1, label="1h", step="hour", stepmode="backward"),
+                    dict(count=2, label="2h", step="hour", stepmode="backward"),
+                    # dict(count=1, label="YTD", step="year", stepmode="todate"),
+                    dict(count=5, label="5h", step="hour", stepmode="backward"),
+                    # dict(step="all")
+                ]
+            )
+        ),
+    )
+    # """
     timeseries_fig.update_layout(
         yaxis_range=[np.min(df_timeseries["vert"]), np.max(df_timeseries["vert"])],
         # yaxis_range=[-0.3, 0.3],
@@ -167,7 +168,7 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
     df_raydec.index = pd.to_numeric(df_raydec.index)
 
     # remove outlier windows
-    df_raydec = remove_outliers(df_raydec, scale_factor)
+    df_raydec = remove_window_outliers(df_raydec, scale_factor)
 
     outliers = df_raydec.loc["outliers"]
     df_raydec = df_raydec.drop("outliers")
@@ -252,25 +253,30 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
 # TEMPERATURE PLOT
 
 
-def plot_temperature():
+def plot_temperature(date):
     # *** parse time zone info ***
     df = pd.read_csv("./data/weatherstats_whitehorse_hourly.csv")
 
-    df["date_time_local"] = pd.to_datetime(df["date_time_local"])
-    df["month"] = df["date_time_local"].dt.month
-    df["year"] = df["date_time_local"].dt.year
-    inds = (
-        (df["month"] >= 6).values
-        & (df["month"] <= 9).values
-        & (df["year"] == 2024).values
+    df["date_time_local"] = pd.to_datetime(
+        df["date_time_local"], format="%Y-%m-%d %H:%M:%S MST"
     )
+    df["date_time_local"] = (
+        df["date_time_local"].dt.tz_localize("UTC").dt.tz_convert("US/Mountain")
+    )
+
+    inds = (
+        (df["date_time_local"].dt.year == date.year).values
+        & (df["date_time_local"].dt.month == date.month).values
+        & (df["date_time_local"].dt.day == date.day).values
+    )
+    # inds = df["date_time_local"]
 
     min_temp = df["min_air_temp_pst1hr"]
     max_temp = df["max_air_temp_pst1hr"]
     avg_temp = (min_temp + max_temp) / 2
     df["avg_temp"] = avg_temp
 
-    fig = px.scatter(df[inds], "date_time_local", "avg_temp")
+    fig = px.line(df[inds], "date_time_local", "avg_temp")
     return fig
 
 
@@ -279,4 +285,4 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    plot_temperature()
+    # plot_temperature()

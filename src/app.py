@@ -9,11 +9,11 @@ import os
 from layout import layout
 import pandas as pd
 import json
-import time
 import plotly.graph_objects as go
+from datetime import datetime
 
-from plotting import plot_timeseries, plot_raydec
-from process_data import get_ellipticity, write_raydec_df
+from plotting import plot_timeseries, plot_raydec, plot_temperature
+from ellipticity_processing import write_raydec_df
 from utils import make_output_folder
 
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
@@ -99,6 +99,22 @@ def update_timeseries_figure(station, date, max_amplitude):
     return timeseries_fig
 
 
+# TEMPERATURE PLOT
+
+
+@app.callback(
+    Output(component_id="temperature_figure", component_property="figure"),
+    Input(component_id="timeseries_dates", component_property="value"),
+)
+def update_temperature_figure(date):
+    if date is None:
+        return go.Figure()
+
+    temperature_fig = plot_temperature(datetime.strptime(date, "%Y-%m-%d"))
+
+    return temperature_fig
+
+
 # RAYDEC PLOT
 
 
@@ -125,7 +141,9 @@ def update_raydec_figure(
         if raydec_info[i]["name"] == file_name:
             fig_dict = raydec_info[i]
             break
-    raydec_fig = plot_raydec(df_raydec, station, date, fig_dict, scale_factor)
+    raydec_fig = plot_raydec(
+        df_raydec, station, date.rsplit("-", 1)[0], fig_dict, scale_factor
+    )
 
     return raydec_fig
 
