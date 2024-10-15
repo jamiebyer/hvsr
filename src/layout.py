@@ -29,11 +29,12 @@ layout = html.Div(
                 ),
                 html.Div(
                     [
-                        # dates that have a timeseries file
+                        # DATES THAT HAVE A TIMESERIES FILE
                         dcc.Markdown("Timeseries files"),
                         dcc.Dropdown(id="timeseries_dates", value="2024-06-10"),
                         # fetch time range of time series
                         # view list of saved files
+                        # SPIKE REMOVAL
                         html.Div(
                             [
                                 dcc.Markdown(
@@ -62,6 +63,7 @@ layout = html.Div(
                                 ),
                             ]
                         ),
+                        # INPUT PARAMS FOR RAYDEC
                         html.Div(
                             [
                                 dcc.Markdown(
@@ -156,7 +158,16 @@ layout = html.Div(
                 ),
             ]
         ),
-        # READ RAYDEC DF AND PLOT
+        # TEMPERATURE PLOT ^ ^
+        dcc.Graph(
+            id="temperature_figure",
+            style={
+                "width": "60%",
+                "display": "inline-block",
+                "vertical-align": "top",
+            },
+        ),
+        # READ SAVED RAYDEC AND PLOT
         html.Div(
             [
                 dcc.Graph(

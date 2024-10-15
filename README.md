@@ -51,10 +51,21 @@ calculates the ellipticity of Rayleigh waves for the input data VERT, NORTH, EAS
 
 
 ## App
-
-- launch with `python ./src/app.py` then visit --- port
+- setting up environment
+- launch with `python ./src/app.py` then visit http://0.0.0.0:8050/
 - paths for where to put timeseries data
 
+
+## Code structure
+
+- **app**:
+- **data_parsing**:
+- **ellipticity_processing**:
+- **layout**:
+- **plotting**:
+- **raydec**:
+- **timeseries_processing**:
+- **utils**:
 
 
 
