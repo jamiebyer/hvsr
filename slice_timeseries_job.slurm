@@ -7,7 +7,6 @@
 #SBATCH --mem=5G
 #SBATCH --partition=cpu2019
 #SBATCH --array=0-120
-#SBATCH -o ./report/output.%a.out # STDOUT
 
 ####### Set environment variables ###############
 source ../miniforge3/bin/activate
