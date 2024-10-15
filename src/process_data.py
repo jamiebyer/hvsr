@@ -307,9 +307,9 @@ def get_ellipticity(
 
     df_timeseries = pd.DataFrame(ellips.T, columns=freqs[:, 0])
 
-    df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
-        int
-    )
+    #df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
+    #    int
+    #)
     return df_timeseries
 
 
@@ -493,6 +493,7 @@ if __name__ == "__main__":
     # #SBATCH --array=1-32 #838
     # python src/process_data.py $SLURM_ARRAY_TASK_ID
     # sbatch slice_timeseries_job.slurm
+    # #SBATCH -o ./report/output.%a.out # STDOUT
 
     ind = int(sys.argv[1])
 
