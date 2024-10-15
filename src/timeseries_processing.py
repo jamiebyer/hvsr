@@ -5,6 +5,7 @@ import pandas as pd
 from utils import make_output_folder
 from dateutil import tz
 import sys
+import os
 
 
 ###### TIMESERIES PROCESSING ######
@@ -133,4 +134,3 @@ if __name__ == "__main__":
     ind = int(sys.argv[1])
 
     # process_station_ellipticity(ind)
-    sensitivity_test(ind)

@@ -7,6 +7,8 @@ from dateutil import tz
 import sys
 import json
 import time
+import dask.dataframe as dd
+import xarray as xr
 
 
 ###### RAYDEC PROCESSING ######
@@ -23,9 +25,12 @@ def get_ellipticity(
     if len(df_in["times"]) < 1:
         return None
 
-    times = df_in["times"].dropna().values
+    # df_in.compute_chunk_sizes()
+    times = df_in["times"].dropna()  # .values
     times -= times[0]
-    n_wind = int(np.round(times[-1] / len_wind))
+
+    # n_wind = int((times[-1] / len_wind).round().compute())
+    n_wind = int(np.round(times[len(times) - 1] / len_wind))
 
     freqs, ellips = raydec(
         vert=df_in["vert"],
@@ -40,12 +45,25 @@ def get_ellipticity(
         nwind=n_wind,
     )
 
-    df_timeseries = pd.DataFrame(ellips.T, columns=freqs[:, 0])
+    # df_timeseries = xr.Dataset(ellips.T, columns=freqs[:, 0])
 
-    #df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
+    ds = xr.Dataset(
+        {"ellips": ellips.T},
+        coords={
+            "freqs": freqs[:, 0],
+            "wind": np.arange(n_wind),
+            "fmin": fmin,
+            "fmax": fmax,
+            "fsteps": fsteps,
+            "cycles": cycles,
+            "dfpar": dfpar,
+        },
+    )
+
+    # df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
     #    int
-    #)
-    return df_timeseries
+    # )
+    return ds
 
 
 def write_json(raydec_info, filename="./results/raydec/raydec_info.json"):
@@ -75,7 +93,7 @@ def write_raydec_df(
     df_par,
     len_wind,
 ):
-    raydec_df = get_ellipticity(
+    raydec_ds = get_ellipticity(
         station,
         date,
         f_min,
@@ -85,7 +103,7 @@ def write_raydec_df(
         df_par,
         len_wind,
     )
-    if raydec_df is None:
+    if raydec_ds is None:
         return None
 
     make_output_folder("./results/raydec/")
@@ -93,11 +111,16 @@ def write_raydec_df(
     # write station df to csv
 
     suffix = str(time.time()).split(".")[-1]
-    raydec_df.to_csv(
-        "./results/raydec/" + str(station) + "/" + date + "-" + suffix + ".csv"
+
+    raydec_ds.to_netcdf(
+        "./results/raydec/" + str(station) + "/" + date + "-" + suffix + ".nc"
     )
+    # raydec_df.to_csv(
+    #    "./results/raydec/" + str(station) + "/" + date + "-" + suffix + ".csv"
+    # )
 
     # python object to be appended
+    """
     raydec_info = {
         "name": str(station) + "/" + date + "-" + suffix,
         "station": station,
@@ -110,7 +133,8 @@ def write_raydec_df(
         "n_wind": raydec_df.shape,
         "len_wind": len_wind,
     }
-
+    """
+    raydec_info = {}
     write_json(raydec_info)
 
     return date
@@ -132,7 +156,7 @@ def remove_window_outliers(df_raydec, scale_factor):
 
     outlier_inds = np.any(diff_from_mean.T > scale_factor * std, axis=1)
     outlier_inds = outlier_inds.astype(int).rename("outliers").to_frame().T
-    df_raydec = pd.concat([df_raydec, outlier_inds])
+    df_raydec = dd.concat([df_raydec, outlier_inds])
 
     mean_inds = df_raydec.loc["outliers"] == 0
     mean = np.nanmean(df_raydec.loc[:, mean_inds], axis=1)
@@ -222,21 +246,34 @@ def stack_station_windows(station, date_range, raydec_properties):
         # First we load existing data into a dict.
         file_data = json.load(file)
 
+    # name would be date unless stacking comparing on single day
+    name = "date"
+    names = []
     to_stack = []
     for saved_run in range(len(file_data["raydec_info"])):
-        if raydec_info["name"] == file_data["raydec_info"][i]["name"]:
+        if raydec_properties["date"] == saved_run["date"]:
             for k, v in raydec_properties:
                 if saved_run[k] != v:
                     continue
+            names.append(saved_run[name])
             to_stack.append(saved_run)
 
-    for s in to_stack:
-        # get csv
+    # create dataframe with average dispersion curve for diff files / dates and the full average
+    stacked_dict = {}
+    for ind, n in enumerate(names):
 
-        # append average to new df
-        pass
+        # save with frequency index
+        stacked_dict[n] = np.mean(np.nanmean(to_stack[ind], axis=1))
 
+    # save as new df with averages from each files, and file date/title
+    stacked_df = dd.DataFrame(stacked_dict)
 
+    # full average
+    stacked_df["average"] = stacked_df.mean()
+
+    # save the raydec properties in a file for
+
+    return stacked_df
 
 if __name__ == "__main__":
     """
