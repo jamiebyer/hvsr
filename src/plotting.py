@@ -7,6 +7,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from timeseries_processing import remove_spikes
 from ellipticity_processing import remove_window_outliers
+import json
+from utils import make_output_folder
 
 
 ###### PLOTTING STATION LOCATIONS ######
@@ -86,7 +88,7 @@ def plot_timeseries(station, date, max_amplitude):
 
     # df_timeseries = df_timeseries[df_timeseries.index.hour <= 2]
 
-    df_timeseries = df_timeseries.resample("1S").mean()
+    df_timeseries = df_timeseries.resample("1s").mean()
 
     # df_timeseries = remove_spikes(df_timeseries, max_amplitude)
 
@@ -106,7 +108,7 @@ def plot_timeseries(station, date, max_amplitude):
     # change to just amplitude...?
     timeseries_fig = px.line(
         df_keep,
-        x=df_keep.index,
+        # x=df_keep.index,
         y=["vert", "north", "east"],
         color_discrete_sequence=["rgba(100, 100, 100, 0.1)"],
     )
@@ -155,6 +157,19 @@ def plot_timeseries(station, date, max_amplitude):
     return timeseries_fig
 
 
+def save_all_timeseries_plot():
+    dir = "./results/timeseries/"
+    for station in os.listdir(dir):
+        print(station)
+        for file in os.listdir(dir + "/" + station + "/"):
+            file = file.replace(".csv", "")
+            timeseries_fig = plot_timeseries(station, file, max_amplitude=0.1)
+            output_dir = "./results/figures/timeseries"
+            make_output_folder(output_dir + "/")
+            make_output_folder(output_dir + "/" + str(station) + "/")
+            timeseries_fig.write_image(output_dir + "/" + station + "/" + file + ".png")
+
+
 # RAYDEC PLOT
 
 
@@ -168,22 +183,23 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
     df_raydec.index = pd.to_numeric(df_raydec.index)
 
     # remove outlier windows
-    df_raydec = remove_window_outliers(df_raydec, scale_factor)
+    # df_raydec = remove_window_outliers(df_raydec, scale_factor)
 
-    outliers = df_raydec.loc["outliers"]
-    df_raydec = df_raydec.drop("outliers")
+    # outliers = df_raydec.loc["outliers"]
+    # df_raydec = df_raydec.drop("outliers")
 
-    mean = df_raydec["mean"]
-    df_raydec = df_raydec.drop("mean", axis=1)
-    outliers = outliers.drop("mean")
+    # mean = df_raydec["mean"]
+    # df_raydec = df_raydec.drop("mean", axis=1)
+    """outliers = outliers.drop("mean")
 
     df_outliers = df_raydec[outliers.index[outliers == 1]]
     df_keep = df_raydec[outliers.index[outliers == 0]]
 
     fig_dict["outliers"] = str(
         df_outliers.shape[1] / (df_outliers.shape[1] + df_keep.shape[1])
-    )
+    )"""
 
+    df_keep = df_raydec
     stats = df_keep.T.describe().T
 
     raydec_fig = px.line(
@@ -193,14 +209,15 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
     )
 
     raydec_fig.add_traces(
+        # list(
+        #    px.line(
+        #        df_outliers,
+        #        color_discrete_sequence=["rgba(255, 0, 0, 0.2)"],
+        #        log_x=True,
+        #    ).select_traces()
+        # )
+        # +
         list(
-            px.line(
-                df_outliers,
-                color_discrete_sequence=["rgba(255, 0, 0, 0.2)"],
-                log_x=True,
-            ).select_traces()
-        )
-        + list(
             px.line(
                 stats["mean"], color_discrete_sequence=["rgba(0, 0, 0, 1)"], log_x=True
             ).select_traces()
@@ -223,7 +240,7 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
 
     groups = (
         df_keep.shape[1] * ["keep"]
-        + df_outliers.shape[1] * ["outliers"]
+        # + df_outliers.shape[1] * ["outliers"]
         + ["mean", "max", "min"]
     )
     for ind, trace in enumerate(raydec_fig["data"]):
@@ -238,10 +255,16 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
         showlegend=True,
     )
 
+    text = ""
+    for k, v in fig_dict.items():
+        if k == "name":
+            continue
+        text += k + ": " + str(v) + "<br>"
+
     raydec_fig.add_annotation(
         x=1,
         y=9,
-        text=str(fig_dict),
+        text=text,
         showarrow=False,
     )
 
@@ -250,10 +273,33 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
     return raydec_fig
 
 
+def plot_sensitivity_test():
+    station = 24614
+    json_path = "./results/raydec/raydec_info.json"
+    for date in os.listdir("./results/raydec/24614/"):
+        date = date.removesuffix(".csv")
+        file_name = str(station) + "/" + str(date)
+        path_raydec = "./results/raydec/" + file_name + ".csv"
+        df_raydec = pd.read_csv(path_raydec, index_col=0)
+        with open(json_path, "r") as file:
+            raydec_info = json.load(file)  # ["raydec_info"]
+
+        fig_dict = {}
+        for i in range(len(raydec_info)):
+            if raydec_info[i]["name"] == file_name:
+                fig_dict = raydec_info[i]
+                break
+        raydec_fig = plot_raydec(
+            df_raydec, 24614, date.rsplit("-", 1)[0], fig_dict, scale_factor=1
+        )
+
+        raydec_fig.write_image("./results/raydec/sensitivity_analysis/" + date + ".png")
+
+
 # TEMPERATURE PLOT
 
 
-def plot_temperature(date):
+def plot_temperature():
     # *** parse time zone info ***
     df = pd.read_csv("./data/weatherstats_whitehorse_hourly.csv")
 
@@ -263,12 +309,12 @@ def plot_temperature(date):
     df["date_time_local"] = (
         df["date_time_local"].dt.tz_localize("UTC").dt.tz_convert("US/Mountain")
     )
-
+    """
     inds = (
         (df["date_time_local"].dt.year == date.year).values
         & (df["date_time_local"].dt.month == date.month).values
         & (df["date_time_local"].dt.day == date.day).values
-    )
+    )"""
     # inds = df["date_time_local"]
 
     min_temp = df["min_air_temp_pst1hr"]
@@ -276,7 +322,7 @@ def plot_temperature(date):
     avg_temp = (min_temp + max_temp) / 2
     df["avg_temp"] = avg_temp
 
-    fig = px.line(df[inds], "date_time_local", "avg_temp")
+    fig = px.line(df, "date_time_local", "avg_temp")
     return fig
 
 
@@ -286,3 +332,4 @@ if __name__ == "__main__":
     """
 
     # plot_temperature()
+    save_all_timeseries_plot()
