@@ -42,9 +42,9 @@ def get_ellipticity(
 
     df_timeseries = pd.DataFrame(ellips.T, columns=freqs[:, 0])
 
-    df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
-        int
-    )
+    #df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
+    #    int
+    #)
     return df_timeseries
 
 
@@ -100,6 +100,8 @@ def write_raydec_df(
     # python object to be appended
     raydec_info = {
         "name": str(station) + "/" + date + "-" + suffix,
+        "station": station,
+        "date": date,
         "f_min": f_min,
         "f_max": f_max,
         "f_steps": f_steps,
@@ -172,6 +174,42 @@ def process_station_ellipticity(
     print("done")
 
 
+def sensitivity_test(ind):
+    # try a range of frequencies, of df_par
+    station = 24614
+    date = "2024-06-15"
+
+    params = []
+
+    f_min, f_max = [0.8, 20]
+    #for f_min, f_max in [[0.8, 20]]
+    
+    f_steps = 150
+    
+    cycles = 10
+    #for cycles in np.arange(8, 13):
+    
+    df_par = 0.1
+    #for df_par in np.linspace(0.05, 0.15, 10):
+
+    len_wind = 3 * 60
+    #for len_wind in np.linspace(60, 10*60, 10):
+
+    for len_wind in np.linspace(60, 10*60, 10):
+        params.append(
+            [
+                f_min,
+                f_max,
+                f_steps,
+                cycles,
+                df_par,
+                len_wind,
+            ]
+        )
+
+    write_raydec_df(station, date, *params[ind])
+
+
 def stack_station_windows(station, date_range, raydec_properties):
     # search through json for files with the correct station, dates, properties
 
@@ -198,30 +236,6 @@ def stack_station_windows(station, date_range, raydec_properties):
         # append average to new df
         pass
 
-
-def sensitivity_test(ind):
-    # try a range of frequencies, of df_par
-    station = 24614
-    date = "2024-06-15"
-
-    params = []
-    for f_min, f_max in [[0.8, 20], [20, 100]]:
-        for f_steps in [150]:
-            for cycles in [5, 10, 15]:
-                for df_par in [0.05, 0.08, 0.10, 0.12, 0.2]:
-                    for len_wind in [60, 5 * 60, 30 * 60, 60 * 60]:
-                        params.append(
-                            [
-                                f_min,
-                                f_max,
-                                f_steps,
-                                cycles,
-                                df_par,
-                                len_wind,
-                            ]
-                        )
-
-    write_raydec_df(station, date, *params[ind])
 
 
 if __name__ == "__main__":
