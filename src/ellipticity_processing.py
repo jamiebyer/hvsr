@@ -47,8 +47,8 @@ def get_ellipticity(
 
     # df_timeseries = xr.Dataset(ellips.T, columns=freqs[:, 0])
 
-    ds = xr.Dataset(
-        {"ellips": ellips.T},
+    ds = xr.DataArray(
+        ellips,
         coords={
             "freqs": freqs[:, 0],
             "wind": np.arange(n_wind),
@@ -58,6 +58,7 @@ def get_ellipticity(
             "cycles": cycles,
             "dfpar": dfpar,
         },
+        dims=["freqs", "wind"],
     )
 
     # df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
@@ -134,8 +135,8 @@ def write_raydec_df(
         "len_wind": len_wind,
     }
     """
-    raydec_info = {}
-    write_json(raydec_info)
+    # raydec_info = {}
+    # write_json(raydec_info)
 
     return date
 
@@ -206,20 +207,20 @@ def sensitivity_test(ind):
     params = []
 
     f_min, f_max = [0.8, 20]
-    #for f_min, f_max in [[0.8, 20]]
-    
+    # for f_min, f_max in [[0.8, 20]]
+
     f_steps = 150
-    
+
     cycles = 10
-    #for cycles in np.arange(8, 13):
-    
+    # for cycles in np.arange(8, 13):
+
     df_par = 0.1
-    #for df_par in np.linspace(0.05, 0.15, 10):
+    # for df_par in np.linspace(0.05, 0.15, 10):
 
     len_wind = 3 * 60
-    #for len_wind in np.linspace(60, 10*60, 10):
+    # for len_wind in np.linspace(60, 10*60, 10):
 
-    for len_wind in np.linspace(60, 10*60, 10):
+    for df_par in np.linspace(0.05, 0.15, 10):
         params.append(
             [
                 f_min,
@@ -274,6 +275,7 @@ def stack_station_windows(station, date_range, raydec_properties):
     # save the raydec properties in a file for
 
     return stacked_df
+
 
 if __name__ == "__main__":
     """
