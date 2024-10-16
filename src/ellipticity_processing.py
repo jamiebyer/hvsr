@@ -15,7 +15,7 @@ import xarray as xr
 
 
 def get_ellipticity(
-    station, date, fmin=0.8, fmax=40, fsteps=300, cycles=10, dfpar=0.1, len_wind=60
+    station, date, fmin=0.8, fmax=40, fsteps=100, cycles=10, dfpar=0.1, len_wind=60
 ):
     # loop over saved time series files
     # raydec
@@ -134,8 +134,8 @@ def write_raydec_df(
         "len_wind": len_wind,
     }
     """
-    raydec_info = {}
-    write_json(raydec_info)
+    # raydec_info = {}
+    # write_json(raydec_info)
 
     return date
 
@@ -174,7 +174,7 @@ def process_station_ellipticity(
 
     f_min = 0.8
     f_max = 20
-    f_steps = 300
+    f_steps = 100
     cycles = 10
     df_par = 0.1
     len_wind = 60
@@ -195,8 +195,6 @@ def process_station_ellipticity(
         len_wind,
     )
 
-    print("done")
-
 
 def sensitivity_test(ind):
     # try a range of frequencies, of df_par
@@ -206,20 +204,20 @@ def sensitivity_test(ind):
     params = []
 
     f_min, f_max = [0.8, 20]
-    #for f_min, f_max in [[0.8, 20]]
-    
-    f_steps = 150
-    
+    # for f_min, f_max in [[0.8, 20]]
+
+    f_steps = 100
+
     cycles = 10
-    #for cycles in np.arange(8, 13):
-    
+    # for cycles in np.arange(8, 13):
+
     df_par = 0.1
-    #for df_par in np.linspace(0.05, 0.15, 10):
+    # for df_par in np.linspace(0.05, 0.15, 10):
 
     len_wind = 3 * 60
-    #for len_wind in np.linspace(60, 10*60, 10):
+    # for len_wind in np.linspace(60, 10*60, 10):
 
-    for len_wind in np.linspace(60, 10*60, 10):
+    for len_wind in np.linspace(60, 10 * 60, 10):
         params.append(
             [
                 f_min,
@@ -274,6 +272,7 @@ def stack_station_windows(station, date_range, raydec_properties):
     # save the raydec properties in a file for
 
     return stacked_df
+
 
 if __name__ == "__main__":
     """

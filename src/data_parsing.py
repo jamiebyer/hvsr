@@ -5,38 +5,20 @@ import datetime
 import pandas as pd
 import os
 import sys
-
-
-def is_int(val):
-    try:
-        int(val)
-        return True
-    except ValueError:
-        return False
-
-
-def is_float(val):
-    try:
-        float(val)
-        return True
-    except ValueError:
-        return False
-
-
-def is_date(val):
-    try:
-        datetime.datetime.strptime(val, "%Y-%m-%dT%H:%M:%S")
-        return True
-    except ValueError:
-        return False
+from utils import is_int, is_date, is_float
 
 
 ####### PARSING XML ######
 
 
 def xml_to_dict(contents, include):
-    # recursively loop over xml to make dictionary.
-    # parse station data
+    """
+    contents:
+    include: names of data to save
+
+    recursively loop over xml to make dictionary.
+    parse station data.
+    """
 
     results_dict = {}
     for c in contents:
@@ -138,6 +120,10 @@ def parse_xml(save=True):
 
 
 def get_file_information():
+    """
+    Iterate over files in data directory.
+    Create mapping between files and the station they have data for.
+    """
     directory = r"./../../gilbert_lab/Whitehorse_ANT/"
 
     # iterate over files in directory
@@ -165,12 +151,5 @@ if __name__ == "__main__":
     """
     run from terminal
     """
-
-    # #SBATCH --array=1-32 #838
-    # python src/process_data.py $SLURM_ARRAY_TASK_ID
-    # sbatch slice_timeseries_job.slurm
-
-    ind = int(sys.argv[1])
-
-    # process_station_ellipticity(ind)
-    # sensitivity_test(ind)
+    # ind = int(sys.argv[1])
+    pass
