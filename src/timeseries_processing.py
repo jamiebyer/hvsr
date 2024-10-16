@@ -6,32 +6,46 @@ from utils import make_output_folder
 from dateutil import tz
 import sys
 import os
+import pyarrow.parquet as pq
 
 
 ###### TIMESERIES PROCESSING ######
 
 
-def get_time_slice(start_date, time_passed):
-    # shift to be in correct time zone
-    # Convert time zone
-    start_date = start_date.datetime.astimezone(tz.gettz("Canada/Yukon"))
-    dates = [start_date + datetime.timedelta(seconds=s) for s in time_passed]
-    hours = np.array([d.hour for d in dates])
+def get_time_slice(df):
+    """
+    df: timeseries df
 
-    inds = (hours >= 2) and (hours <= 4)
+    convert to correct time zone.
+    get slice between hour limits
+    """
+    # *** can probably make this more efficient... ***
+    df["dates"] = df["dates"].apply(lambda d: d.datetime)
+    df["dates"] = df["dates"].dt.tz_localize(datetime.timezone.utc)
+    df["dates"] = df["dates"].dt.tz_convert(tz.gettz("Canada/Yukon"))
 
-    print(inds.shape, np.sum(inds))
+    hours = np.array([d.hour for d in df["dates"]])
 
-    # look at night-time hours and find quietist(?) (would we always want quietist...?) consecutive 3h?
-
-    # check spacing and nans
-
-    return inds
+    df = df[np.any(np.array([hours >= 20, hours <= 8]), axis=0)]
+    return df
 
 
-def slice_station_data(station, file_names, input_dir, output_dir="./timeseries/"):
-    """"""
-    # iterate over files in directory
+def slice_station_data(station, input_dir, output_dir="./timeseries/"):
+    """
+    station: station to save timeseries
+    file_names: list of files for station to save
+    input_dir
+    output_dir: where to save timeseries
+
+    *** needs file_information file ***
+    """
+
+    # get mapping between station and files with station info
+    file_mapping = pd.read_csv("./data/file_information.csv", index_col=0).T
+
+    file_names = file_mapping[file_mapping["station"] == s].index
+
+    # iterate over station files
     for file_name in file_names:
         # read in data
         stream_east = read(input_dir + file_name, format="mseed")
@@ -48,6 +62,7 @@ def slice_station_data(station, file_names, input_dir, output_dir="./timeseries/
         trace_vert = stream_vert.traces[0]
 
         dates = trace_east.times(type="utcdatetime")
+        # time passed, used in raydec
         times = trace_east.times()
         times -= times[0]
 
@@ -68,58 +83,96 @@ def slice_station_data(station, file_names, input_dir, output_dir="./timeseries/
             },
         )
 
-        # *** can probably make this more efficient... ***
-        df["dates"] = df["dates"].apply(lambda d: d.datetime)
-        df["dates"] = df["dates"].dt.tz_localize(datetime.timezone.utc)
-        df["dates"] = df["dates"].dt.tz_convert(tz.gettz("Canada/Yukon"))
+        df = get_time_slice(df)
 
-        hours = np.array([d.hour for d in df["dates"]])
-
-        df = df[np.any(np.array([hours >= 20, hours <= 8]), axis=0)]
-
-        # *** make sure the spacing is correct and gaps have nans
+        # making output paths
         name = str(start_date).split("T")[0] + ".csv"
         make_output_folder(output_dir)
         make_output_folder(output_dir + "/" + str(station) + "/")
-        # write station df to csv
+        # save station timeseries to csv
         df.to_csv(output_dir + "/" + str(station) + "/" + name)
 
 
-def remove_spikes(df_timeseries, max_amplitude):
+def label_spikes(df_timeseries, spike_quartile=0.95):
     """
     remove spikes from timeseries data.
-    values over a certain amplitude
-    or
-    LTA/STA
+    values over a certain quartile threshold
+
+
+    *** later may do LTA/STA ***
     """
 
-    df_timeseries["outliers"] = (
-        np.abs(df_timeseries["vert"].values) >= max_amplitude
-    ).astype(int)
+    # for comp in ["vert", "north", "east"]:
+    #    df_timeseries.clip(upper=df_timeseries[comp].quantile(spike_quartile), axis=1)
+
+    df_timeseries["outliers"] = np.any(
+        df_timeseries[["vert", "north", "east"]].quantile(spike_quartile), axis=0
+    )
+
+    # df_timeseries["outliers"] = (
+    #     np.abs(df_timeseries["vert"].values) >= max_amplitude
+    # ).astype(int)
+
     return df_timeseries
 
 
-def find_quiet_times():
-    pass
+def clean_timeseries_files(ind, in_dir=r"./results/timeseries/"):
+    """
+    ind:
+    in_dir: input directory with saved timeseries csvs
+
+    read in saved timeseries csv.
+    label spikes based on full timeseries.
+    slice a subset of night timeseries.
+    saved with parquet for compression.
+    """
+
+    # loop over stations and files to make an indexable list
+    file_path = []
+    for station in os.listdir(in_dir):
+        for file in os.listdir(in_dir + station):
+            date = file.replace(".csv", "")
+            file_path.append([station, date])
+
+    # read in full night timeseries
+    df_timeseries = pd.read_csv(
+        in_dir + file_path[ind][0] + "/" + file_path[ind][1] + ".csv"
+    )
+
+    df_timeseries = df_timeseries.set_index(
+        pd.DatetimeIndex(pd.to_datetime(df_timeseries["dates"], format="ISO8601"))
+    )
+
+    # label spikes (on full night(?), 20:00-8:00)
+    df_timeseries = label_spikes(df_timeseries, spike_quartile=0.95)
+
+    # clip to  22:00 - 5:00
+    hours = df_timeseries.index.hour
+    df_timeseries = df_timeseries[np.any(np.array([hours >= 22, hours <= 5]), axis=0)]
+
+    # creating output folders
+    f = file_path[ind]
+    output_dir = in_dir + "clipped/"
+    make_output_folder(output_dir)
+    make_output_folder(output_dir + "/" + f[0] + "/")
+
+    # save with parquet to compress
+    df_timeseries.to_parquet(output_dir + "/" + f[0] + "/" + f[1] + ".parquet")
 
 
-def remove_timeseries_edges():
-    pass
-
-
-def process_station_timeseries(ind, directory=r"./data/Whitehorse_ANT/"):
+def process_station_timeseries(ind, in_dir=r"./data/Whitehorse_ANT/"):
+    """
+    save a station
+    """
     # save each station to a separate folder...
     # input station list and file list to save
 
     file_mapping = pd.read_csv("./data/file_information.csv", index_col=0).T
     stations = file_mapping["station"].values
     unique_stations = np.unique(stations)
-
     s = unique_stations[ind]
-    file_names = file_mapping[file_mapping["station"] == s].index
-    slice_station_data(s, file_names, directory)
 
-    print("done")
+    slice_station_data(s, in_dir)
 
 
 if __name__ == "__main__":
@@ -127,10 +180,8 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    # #SBATCH --array=1-32 #838
-    # python src/process_data.py $SLURM_ARRAY_TASK_ID
-    # sbatch slice_timeseries_job.slurm
-
-    ind = int(sys.argv[1])
-
-    # process_station_ellipticity(ind)
+    # ind = int(sys.argv[1])
+    ind = 0
+    while True:
+        clean_timeseries_files(ind)
+        ind += 1
