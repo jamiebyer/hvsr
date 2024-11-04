@@ -5,10 +5,11 @@ from bs4 import BeautifulSoup
 import os
 import plotly.express as px
 import plotly.graph_objects as go
-from timeseries_processing import remove_spikes
+from timeseries_processing import label_spikes
 from ellipticity_processing import remove_window_outliers
 import json
 from utils import make_output_folder
+import xarray as xr
 
 
 ###### PLOTTING STATION LOCATIONS ######
@@ -80,15 +81,17 @@ def plot_timeseries(station, date, max_amplitude):
     # any timeseries processing for plot has to also be done before running raydec
     # *** only read in the csv once ***
 
-    path_timeseries = "./results/timeseries/" + str(station) + "/" + str(date) + ".csv"
-    df_timeseries = pd.read_csv(path_timeseries, index_col=1)
+    dir_in = "./results/timeseries/" + str(station) + "/" + date
+    df_timeseries = pd.read_parquet(dir_in, engine="pyarrow")
+
     df_timeseries.index = pd.to_datetime(
         df_timeseries.index, format="ISO8601"  # format="%Y-%m-%d %H:%M:%S.%f%z"
     )
+    # df_timeseries.set_index(pd.to_datetime(df_timeseries["dates"], format="mixed"))
 
     # df_timeseries = df_timeseries[df_timeseries.index.hour <= 2]
 
-    df_timeseries = df_timeseries.resample("1s").mean()
+    # df_timeseries = df_timeseries.resample("1s").mean()
 
     # df_timeseries = remove_spikes(df_timeseries, max_amplitude)
 
@@ -173,14 +176,25 @@ def save_all_timeseries_plot():
 # RAYDEC PLOT
 
 
-def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
+def plot_raydec(da_raydec, station, date, fig_dict, scale_factor):
     # ideally the outliers are dropped and a new df is saved to read in,
     # but after a good threshold is set
 
+    fig_dict = {
+        "station": station,
+        "date": date.rsplit("-", 1)[0],
+        "fmin": da_raydec["fmin"].values,
+        "fmax": da_raydec["fmax"].values,
+        "fsteps": da_raydec["fsteps"].values,
+        "nwind": len(da_raydec.coords["wind"].values),
+        "cycles": da_raydec["cycles"].values,
+        "dfpar": da_raydec["dfpar"].values,
+    }
+
     # skip nans
     # plot raydec
-    df_raydec = df_raydec.T.dropna()
-    df_raydec.index = pd.to_numeric(df_raydec.index)
+    da_raydec = da_raydec.dropna(dim="freqs")
+    # df_raydec.index = pd.to_numeric(df_raydec.index)
 
     # remove outlier windows
     # df_raydec = remove_window_outliers(df_raydec, scale_factor)
@@ -188,7 +202,8 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
     # outliers = df_raydec.loc["outliers"]
     # df_raydec = df_raydec.drop("outliers")
 
-    # mean = df_raydec["mean"]
+    mean = da_raydec.mean(dim="wind")
+
     # df_raydec = df_raydec.drop("mean", axis=1)
     """outliers = outliers.drop("mean")
 
@@ -199,8 +214,8 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
         df_outliers.shape[1] / (df_outliers.shape[1] + df_keep.shape[1])
     )"""
 
-    df_keep = df_raydec
-    stats = df_keep.T.describe().T
+    df_keep = da_raydec
+    # stats = df_keep.describe()
 
     raydec_fig = px.line(
         df_keep,
@@ -219,29 +234,18 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
         # +
         list(
             px.line(
-                stats["mean"], color_discrete_sequence=["rgba(0, 0, 0, 1)"], log_x=True
-            ).select_traces()
-        )
-        + list(
-            px.line(
-                stats["min"],
-                color_discrete_sequence=["rgba(0, 0, 255, 0.5)"],
-                log_x=True,
-            ).select_traces()
-        )
-        + list(
-            px.line(
-                stats["max"],
-                color_discrete_sequence=["rgba(0, 0, 255, 0.5)"],
+                pd.DataFrame(mean, df_keep.coords["freqs"].values),
+                color_discrete_sequence=["rgba(0, 0, 0, 1)"],
                 log_x=True,
             ).select_traces()
         )
     )
 
     groups = (
-        df_keep.shape[1] * ["keep"]
+        ["mean"]
         # + df_outliers.shape[1] * ["outliers"]
-        + ["mean", "max", "min"]
+        # ["mean", "max", "min"]
+        + df_keep.shape[1] * ["keep"]
     )
     for ind, trace in enumerate(raydec_fig["data"]):
         trace["legendgroup"] = groups[ind]
@@ -275,25 +279,55 @@ def plot_raydec(df_raydec, station, date, fig_dict, scale_factor):
 
 def plot_sensitivity_test():
     station = 24614
-    json_path = "./results/raydec/raydec_info.json"
+    # json_path = "./results/raydec/raydec_info.json"
     for date in os.listdir("./results/raydec/24614/"):
-        date = date.removesuffix(".csv")
+        date = date.removesuffix(".nc")
         file_name = str(station) + "/" + str(date)
-        path_raydec = "./results/raydec/" + file_name + ".csv"
-        df_raydec = pd.read_csv(path_raydec, index_col=0)
-        with open(json_path, "r") as file:
-            raydec_info = json.load(file)  # ["raydec_info"]
+        path_raydec = "./results/raydec/" + file_name + ".nc"
 
-        fig_dict = {}
-        for i in range(len(raydec_info)):
-            if raydec_info[i]["name"] == file_name:
-                fig_dict = raydec_info[i]
-                break
+        da_raydec = xr.open_dataarray(path_raydec)
+
         raydec_fig = plot_raydec(
-            df_raydec, 24614, date.rsplit("-", 1)[0], fig_dict, scale_factor=1
+            da_raydec, 24614, date.rsplit("-", 1)[0], scale_factor=1
         )
 
-        raydec_fig.write_image("./results/raydec/sensitivity_analysis/" + date + ".png")
+        raydec_fig.write_image(
+            "./results/figures/sensitivity_analysis/" + date + ".png"
+        )
+
+
+# STACKING PLOT
+
+
+def plot_stacking():
+    for station in os.listdir("./results/raydec/")[2:]:
+        in_dir = "./results/raydec/stacked/" + station + ".nc"
+        da_raydec = xr.open_dataarray(in_dir)
+        da_raydec = da_raydec.dropna(dim="freqs")
+
+        df = pd.DataFrame(
+            da_raydec, columns=da_raydec.coords["date"], index=da_raydec.coords["freqs"]
+        )
+
+        raydec_fig = px.line(
+            df,  # da_raydec,
+            x=df.index,
+            y=df.columns,
+            # "date",
+            # "freqs",
+            # x=da_raydec.index,  # "freqs",  # da_raydec.coords["freqs"],
+            # y=da_raydec.columns,  # "date",  # np.arange(len(da_raydec.coords["date"])),
+            # line_group=da_raydec.coords["date"][0],
+            color_discrete_sequence=["rgba(100, 100, 100, 0.2)"] * (len(df.columns) - 1)
+            + ["rgba(0, 0, 0, 1)"],
+            log_x=True,
+        )
+        raydec_fig.update_layout(
+            yaxis_range=[0, 8],
+            title=station,
+        )
+
+        raydec_fig.write_image("./results/figures/stacked/" + station + ".png")
 
 
 # TEMPERATURE PLOT
@@ -332,4 +366,10 @@ if __name__ == "__main__":
     """
 
     # plot_temperature()
-    save_all_timeseries_plot()
+    # save_all_timeseries_plot()
+    # save_all_timeseries_plot()
+    # plot_stacking()
+
+    # fig = plot_map()
+    fig = plot_from_xml()
+    fig.show()

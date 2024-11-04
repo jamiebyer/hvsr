@@ -15,18 +15,31 @@ import xarray as xr
 
 
 def get_ellipticity(
-    station, date, fmin=0.8, fmax=40, fsteps=100, cycles=10, dfpar=0.1, len_wind=60
+    station,
+    date,
+    fmin=0.8,
+    fmax=40,
+    fsteps=100,
+    cycles=10,
+    dfpar=0.1,
+    len_wind=3 * 60,
+    remove_spikes=False,
 ):
     # loop over saved time series files
     # raydec
     # number of windows based on size of slice
-    dir_in = "./results/timeseries/" + str(station) + "/" + date + ".csv"
-    df_in = pd.read_csv(dir_in).dropna()
+    dir_in = "./results/timeseries/" + str(station) + "/" + date
+    df_in = pd.read_parquet(dir_in, engine="pyarrow")
+    if remove_spikes:
+        df_in[df_in["spikes"]] = np.nan
+    df_in = df_in.dropna()
+
     if len(df_in["times"]) < 1:
         return None
 
     # df_in.compute_chunk_sizes()
     times = df_in["times"].dropna()  # .values
+
     times -= times[0]
 
     # n_wind = int((times[-1] / len_wind).round().compute())
@@ -47,8 +60,8 @@ def get_ellipticity(
 
     # df_timeseries = xr.Dataset(ellips.T, columns=freqs[:, 0])
 
-    ds = xr.Dataset(
-        {"ellips": ellips.T},
+    ds = xr.DataArray(
+        ellips,
         coords={
             "freqs": freqs[:, 0],
             "wind": np.arange(n_wind),
@@ -58,29 +71,13 @@ def get_ellipticity(
             "cycles": cycles,
             "dfpar": dfpar,
         },
+        dims=["freqs", "wind"],
     )
 
     # df_timeseries["outliers"] = (np.abs(df_timeseries["vert"]) >= max_amplitude).astype(
     #    int
     # )
     return ds
-
-
-def write_json(raydec_info, filename="./results/raydec/raydec_info.json"):
-    with open(filename, "r+") as file:
-        # First we load existing data into a dict.
-        file_data = json.load(file)
-        if (len(file_data["raydec_info"])) == 0:
-            file_data["raydec_info"].append(raydec_info)
-        else:
-            for i in range(len(file_data["raydec_info"])):
-                if raydec_info["name"] == file_data["raydec_info"][i]["name"]:
-                    file_data["raydec_info"][i] = raydec_info
-                elif i == len(file_data["raydec_info"]) - 1:
-                    file_data["raydec_info"].append(raydec_info)
-        # Sets file's current position at offset.
-        file.seek(0)
-        json.dump(file_data, file, indent=4)
 
 
 def write_raydec_df(
@@ -102,6 +99,7 @@ def write_raydec_df(
         cycles,
         df_par,
         len_wind,
+        remove_spikes=True,
     )
     if raydec_ds is None:
         return None
@@ -115,33 +113,8 @@ def write_raydec_df(
     raydec_ds.to_netcdf(
         "./results/raydec/" + str(station) + "/" + date + "-" + suffix + ".nc"
     )
-    # raydec_df.to_csv(
-    #    "./results/raydec/" + str(station) + "/" + date + "-" + suffix + ".csv"
-    # )
-
-    # python object to be appended
-    """
-    raydec_info = {
-        "name": str(station) + "/" + date + "-" + suffix,
-        "station": station,
-        "date": date,
-        "f_min": f_min,
-        "f_max": f_max,
-        "f_steps": f_steps,
-        "cycles": cycles,
-        "df_par": df_par,
-        "n_wind": raydec_df.shape,
-        "len_wind": len_wind,
-    }
-    """
-    # raydec_info = {}
-    # write_json(raydec_info)
 
     return date
-
-
-def remove_window_bounds():
-    pass
 
 
 def remove_window_outliers(df_raydec, scale_factor):
@@ -172,17 +145,18 @@ def process_station_ellipticity(
     # save each station to a separate folder...
     # input station list and file list to save
 
-    f_min = 0.8
+    f_min = 0.1
     f_max = 20
     f_steps = 100
     cycles = 10
     df_par = 0.1
-    len_wind = 60
+    len_wind = 3 * 60
 
     station_list = []
     for station in os.listdir(directory):
-        for date in os.listdir(directory + station):
-            station_list.append([station, date])
+        if station != "stats.csv":
+            for date in os.listdir(directory + station):
+                station_list.append([station, date])
 
     write_raydec_df(
         station_list[ind][0],
@@ -232,58 +206,47 @@ def sensitivity_test(ind):
     write_raydec_df(station, date, *params[ind])
 
 
-def stack_station_windows(station, date_range, raydec_properties):
-    # search through json for files with the correct station, dates, properties
+def stack_station_windows():
+    in_dir = "./results/raydec/"
+    for station in ["24625"]:  # os.listdir(in_dir):
+        if station not in ["stacked", "raydec"]:
+            stack_columns = []
+            stack_data = []
+            for file in os.listdir(in_dir + station):
+                # add average to dataframe
+                da_raydec = xr.open_dataarray(in_dir + station + "/" + file)
+                stack_columns.append(file.rsplit("-", 1)[0])
+                mean = da_raydec.mean(dim="wind")
+                stack_data.append(mean)
 
-    # average the dispersion curves from each file
+                # using the last freqs, assuming theyre all the same
+                freqs = da_raydec.coords["freqs"]
 
-    # calculate range in values, error
+            stack_columns.append("mean")
+            mean = np.array(stack_data).mean(axis=0)
+            stack_data.append(mean)
 
-    filename = "./results/raydec/raydec_info.json"
-    with open(filename, "r+") as file:
-        # First we load existing data into a dict.
-        file_data = json.load(file)
+            da_stack = xr.DataArray(
+                np.array(stack_data).T, {"freqs": freqs, "date": stack_columns}
+            )
 
-    # name would be date unless stacking comparing on single day
-    name = "date"
-    names = []
-    to_stack = []
-    for saved_run in range(len(file_data["raydec_info"])):
-        if raydec_properties["date"] == saved_run["date"]:
-            for k, v in raydec_properties:
-                if saved_run[k] != v:
-                    continue
-            names.append(saved_run[name])
-            to_stack.append(saved_run)
+            make_output_folder("./results/raydec/stacked/")
+            # write station df to csv
 
-    # create dataframe with average dispersion curve for diff files / dates and the full average
-    stacked_dict = {}
-    for ind, n in enumerate(names):
+            da_stack.to_dataframe(name="ellipticity").to_csv(
+                "./results/raydec/stacked/" + str(station) + "_full.csv"
+            )
+            da_stack.sel(date="mean").to_dataframe(name="ellipticity").to_csv(
+                "./results/raydec/stacked/" + str(station) + "_mean.csv"
+            )
 
-        # save with frequency index
-        stacked_dict[n] = np.mean(np.nanmean(to_stack[ind], axis=1))
-
-    # save as new df with averages from each files, and file date/title
-    stacked_df = dd.DataFrame(stacked_dict)
-
-    # full average
-    stacked_df["average"] = stacked_df.mean()
-
-    # save the raydec properties in a file for
-
-    return stacked_df
+            # da_stack.to_netcdf("./results/raydec/stacked/" + str(station) + ".nc")
 
 
 if __name__ == "__main__":
     """
     run from terminal
     """
+    # ind = int(sys.argv[1])
 
-    # #SBATCH --array=1-32 #838
-    # python src/process_data.py $SLURM_ARRAY_TASK_ID
-    # sbatch slice_timeseries_job.slurm
-
-    ind = int(sys.argv[1])
-
-    # process_station_ellipticity(ind)
-    sensitivity_test(ind)
+    process_station_ellipticity(ind=1)
