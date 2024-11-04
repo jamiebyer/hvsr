@@ -12,6 +12,49 @@ import pyarrow.parquet as pq
 ###### TIMESERIES PROCESSING ######
 
 
+def get_full_timeseries_stats():
+
+    stats = {}
+    path = "/run/media/jbyer/Backup/raw/"
+    for station in os.listdir(path):
+        for date in os.listdir(path + station):
+            df = pd.read_csv(path + station + "/" + date)
+            magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"])
+            stats[station + "/" + date.replace(".csv", "")] = {
+                "full_mean": magnitude.mean(),
+                "full_std": magnitude.std(),
+                "vert_mean": df["vert"].mean(),
+                "vert_std": df["vert"].std(),
+                "north_mean": df["north"].mean(),
+                "north_std": df["north"].std(),
+                "east_mean": df["east"].mean(),
+                "east_std": df["east"].std(),
+            }
+
+    pd.DataFrame(stats).to_csv("./results/timeseries/stats.csv")
+
+
+def label_spikes():
+    path = "./results/timeseries/"
+    # read in timeseries stats
+    stats = pd.read_csv(path + "stats.csv", index_col=0)
+    # read in timeseries slice
+    for station in os.listdir(path):
+        for date in os.listdir(path + "/" + station):
+            if not os.path.isfile(path + "/" + station + "/" + date):
+                continue
+            df = pd.read_parquet(path + "/" + station + "/" + date)
+            magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"])
+            # print(stats[station + "/" + date.replace(".parquet", "")])
+            std = stats[station + "/" + date.replace(".parquet", "")]["full_std"]
+            if np.all(np.isnan(std)):
+                continue
+
+            df["spikes"] = magnitude >= 3 * std
+            
+            df.to_parquet(path + "/" + station + "/" + date)
+
+
 def get_time_slice(df):
     """
     df: timeseries df
@@ -93,7 +136,7 @@ def slice_station_data(station, input_dir, output_dir="./timeseries/"):
         df.to_csv(output_dir + "/" + str(station) + "/" + name)
 
 
-def label_spikes(df_timeseries, spike_quartile=0.95):
+def label_spikes_og(df_timeseries, spike_quartile=0.95):
     """
     remove spikes from timeseries data.
     values over a certain quartile threshold
@@ -180,5 +223,5 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    ind = int(sys.argv[1])
-    clean_timeseries_files(ind)
+    # get_full_timeseries_stats()
+    label_spikes()

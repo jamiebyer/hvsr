@@ -15,6 +15,7 @@ from datetime import datetime
 from plotting import plot_timeseries, plot_raydec, plot_temperature
 from ellipticity_processing import write_raydec_df, stack_station_windows
 from utils import make_output_folder
+import xarray as xr
 
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
@@ -158,18 +159,12 @@ def update_raydec_figure(
         return go.Figure()
 
     file_name = str(station) + "/" + str(date)
-    path_raydec = "./results/raydec/" + file_name + ".csv"
-    df_raydec = pd.read_csv(path_raydec, index_col=0)
-    with open(json_path, "r") as file:
-        raydec_info = json.load(file)["raydec_info"]
+    path_raydec = "./results/raydec/" + file_name + ".nc"
 
-    fig_dict = {}
-    for i in range(len(raydec_info)):
-        if raydec_info[i]["name"] == file_name:
-            fig_dict = raydec_info[i]
-            break
+    da_raydec = xr.open_dataarray(path_raydec)
+
     raydec_fig = plot_raydec(
-        df_raydec, station, date.rsplit("-", 1)[0], fig_dict, scale_factor
+        da_raydec, station, date.rsplit("-", 1)[0], scale_factor=0.95
     )
 
     return raydec_fig
@@ -204,11 +199,11 @@ def write_json(raydec_info, filename="./results/raydec/raydec_info.json"):
     Input(component_id="save_raydec", component_property="n_clicks"),
     prevent_initial_call=True,
 )
-def write_raydec_df(station, date, f_min, f_max, f_steps, cycles, df_par, _):
+def save_raydec(station, date, f_min, f_max, f_steps, cycles, df_par, _):
     if station is None or date is None:
         return go.Figure()
 
-    raydec_df = write_raydec_df(
+    date = write_raydec_df(
         station,
         date,
         f_min,
@@ -217,24 +212,6 @@ def write_raydec_df(station, date, f_min, f_max, f_steps, cycles, df_par, _):
         cycles,
         df_par,
     )
-
-    make_output_folder("./results/raydec/")
-    make_output_folder("./results/raydec/" + str(station) + "/")
-    # write station df to csv
-    raydec_df.to_csv("./results/raydec/" + str(station) + "/" + date + ".csv")
-
-    # python object to be appended
-    raydec_info = {
-        "name": str(station) + "/" + date,
-        "f_min": f_min,
-        "f_max": f_max,
-        "f_steps": f_steps,
-        "cycles": cycles,
-        "df_par": df_par,
-        "n_wind": raydec_df.shape,
-    }
-
-    write_json(raydec_info)
 
     return date
 
