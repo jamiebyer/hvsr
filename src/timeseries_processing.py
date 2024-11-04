@@ -180,8 +180,5 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    # ind = int(sys.argv[1])
-    ind = 0
-    while True:
-        clean_timeseries_files(ind)
-        ind += 1
+    ind = int(sys.argv[1])
+    clean_timeseries_files(ind)

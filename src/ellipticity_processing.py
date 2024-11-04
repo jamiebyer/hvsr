@@ -15,13 +15,19 @@ import xarray as xr
 
 
 def get_ellipticity(
-    station, date, fmin=0.8, fmax=40, fsteps=100, cycles=10, dfpar=0.1, len_wind=60
+    station, date, fmin=0.8, fmax=40, fsteps=100, cycles=10, dfpar=0.1, len_wind=3 * 60
 ):
     # loop over saved time series files
     # raydec
     # number of windows based on size of slice
-    dir_in = "./results/timeseries/" + str(station) + "/" + date + ".csv"
-    df_in = pd.read_csv(dir_in).dropna()
+    dir_in = (
+        "./results/timeseries/"
+        + str(station)
+        + "/"
+        + date.replace(".csv", "")
+        + ".parquet"
+    )
+    df_in = pd.read_parquet(dir_in, engine="pyarrow").dropna()
     if len(df_in["times"]) < 1:
         return None
 
@@ -173,17 +179,18 @@ def process_station_ellipticity(
     # save each station to a separate folder...
     # input station list and file list to save
 
-    f_min = 0.8
+    f_min = 0.1
     f_max = 20
     f_steps = 100
     cycles = 10
-    df_par = 0.1
-    len_wind = 60
+    df_par = 0.15
+    len_wind = 3 * 60
 
     station_list = []
     for station in os.listdir(directory):
-        for date in os.listdir(directory + station):
-            station_list.append([station, date])
+        if station not in ["raw", "clipped", "saved"]:
+            for date in os.listdir(directory + station):
+                station_list.append([station, date.replace(".parquet", "")])
 
     write_raydec_df(
         station_list[ind][0],
@@ -286,5 +293,5 @@ if __name__ == "__main__":
 
     ind = int(sys.argv[1])
 
-    # process_station_ellipticity(ind)
-    sensitivity_test(ind)
+    process_station_ellipticity(ind)
+    # sensitivity_test(ind)
