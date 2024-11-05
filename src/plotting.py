@@ -10,6 +10,8 @@ from ellipticity_processing import remove_window_outliers
 import json
 from utils import make_output_folder
 import xarray as xr
+import pyarrow as pa
+import sys
 
 
 ###### PLOTTING STATION LOCATIONS ######
@@ -76,66 +78,40 @@ def plot_map():
 # TIMESERIES PLOT
 
 
-def plot_timeseries(station, date, max_amplitude):
+def plot_timeseries_app(station, date, max_amplitude):
     # only do general layout once
     # any timeseries processing for plot has to also be done before running raydec
     # *** only read in the csv once ***
 
     dir_in = "./results/timeseries/" + str(station) + "/" + date
-    df_timeseries = pd.read_parquet(dir_in, engine="pyarrow")
+    df_timeseries = pd.read_parquet(dir_in, engine="pyarrow", use_nullable_dtypes=True)
 
     df_timeseries.index = pd.to_datetime(
         df_timeseries.index, format="ISO8601"  # format="%Y-%m-%d %H:%M:%S.%f%z"
     )
     # df_timeseries.set_index(pd.to_datetime(df_timeseries["dates"], format="mixed"))
 
-    # df_timeseries = df_timeseries[df_timeseries.index.hour <= 2]
-
-    # df_timeseries = df_timeseries.resample("1s").mean()
-
-    # df_timeseries = remove_spikes(df_timeseries, max_amplitude)
-
     # downsample for plotting
     # df_timeseries = df_timeseries.resample("5min")
 
-    # outliers = df_timeseries["outliers"]
-    # df_timeseries = df_timeseries.drop("outliers", axis=1)
+    # should just add to saved df
+    magnitude = np.sqrt(
+        df_timeseries["vert"] ** 2
+        + df_timeseries["north"] ** 2
+        + df_timeseries["east"] ** 2
+    )
 
-    # df_outliers = df_timeseries[outliers == 1]
-    # df_keep = df_timeseries[outliers == 0]
-    df_keep = df_timeseries
-
-    stats = df_keep["vert"].describe()
-    # print(stats)
+    df_timeseries["magnitude"] = magnitude
 
     # change to just amplitude...?
     timeseries_fig = px.line(
-        df_keep,
+        df_timeseries,
         # x=df_keep.index,
-        y=["vert", "north", "east"],
-        color_discrete_sequence=["rgba(100, 100, 100, 0.1)"],
+        y=["magnitude"],
+        # color_discrete_sequence=["rgba(100, 100, 100, 0.1)"],
+        color="spikes",
     )
 
-    """
-    if df_outliers.shape[0] > 1:
-        timeseries_fig.add_traces(
-            list(
-                px.scatter(
-                    df_outliers,
-                    x=df_outliers.index,
-                    y="vert",
-                    color_discrete_sequence=["rgba(255, 0, 0, 0.5)"],
-                ).select_traces()
-            )  # +
-            # list(px.line(x=df_keep["dates"], y=stats["mean"], color_discrete_sequence=["rgba(0, 0, 255, 0.5)"]).select_traces()) +
-            # list(px.line(x=df_keep["dates"], y=stats["min"], color_discrete_sequence=["rgba(0, 0, 255, 0.5)"]).select_traces()) +
-            # list(px.line(x=df_keep["dates"], y=stats["max"], color_discrete_sequence=["rgba(0, 0, 255, 0.5)"]).select_traces())
-        )
-
-        # groups = ["vert", "north", "east", "outliers"]#, "mean", "max", "min"]
-        for ind, trace in enumerate(timeseries_fig["data"][3:]):
-            trace["legendgroup"] = "outliers"  # groups[ind]
-    """
     timeseries_fig.update_xaxes(
         rangeslider_visible=True,
         rangeselector=dict(
@@ -160,17 +136,73 @@ def plot_timeseries(station, date, max_amplitude):
     return timeseries_fig
 
 
-def save_all_timeseries_plot():
-    dir = "./results/timeseries/"
-    for station in os.listdir(dir):
-        print(station)
-        for file in os.listdir(dir + "/" + station + "/"):
-            file = file.replace(".csv", "")
-            timeseries_fig = plot_timeseries(station, file, max_amplitude=0.1)
-            output_dir = "./results/figures/timeseries"
-            make_output_folder(output_dir + "/")
-            make_output_folder(output_dir + "/" + str(station) + "/")
-            timeseries_fig.write_image(output_dir + "/" + station + "/" + file + ".png")
+def plot_timeseries(station, date):
+    dir_in = "./results/timeseries/clipped/" + str(station) + "/" + date
+    
+    schema = pa.schema([
+        ("vert", pa.float32()),
+        ("north", pa.float32()),
+        ("east", pa.float32()),
+        ("magnitude", pa.float32()),
+        ("dates", pa.timestamp("ns", "MST")),
+        ("spikes", pa.bool_()),
+    ])
+    df_timeseries = pd.read_parquet(dir_in, engine="pyarrow", schema=schema)
+
+    df_timeseries.index = pd.to_datetime(
+        df_timeseries.index, format="mixed", #format="ISO8601"  # format="%Y-%m-%d %H:%M:%S.%f%z"
+    )
+    # df_timeseries.set_index(pd.to_datetime(df_timeseries["dates"], format="mixed"))
+
+    # downsample for plotting
+    # df_timeseries = df_timeseries.resample("5min")
+
+    #print(df_timeseries)
+    magnitude = df_timeseries["magnitude"]
+    print(np.min(magnitude), np.max(magnitude))
+    print(np.sum(df_timeseries["spikes"] == True), "/", len(df_timeseries["spikes"]))
+    print(
+        np.min(magnitude[df_timeseries["spikes"] == True]),
+        np.max(magnitude[df_timeseries["spikes"] == True]),
+    )
+    print(
+        np.min(magnitude[df_timeseries["spikes"] == False]),
+        np.max(magnitude[df_timeseries["spikes"] == False]),
+    )
+
+    #df_timeseries = df_timeseries[:1000]#.resample("5min")
+    
+    # change to just amplitude...?
+    timeseries_fig = px.line(
+        df_timeseries,
+        # x=df_keep.index,
+        y=["magnitude"],
+        # color_discrete_sequence=["rgba(100, 100, 100, 0.1)"],
+        color="spikes",
+    )
+
+    return timeseries_fig
+
+# move to utils
+def get_station_file_list2():
+    files = []
+    in_path = "./results/timeseries/clipped/"
+    for station in os.listdir(in_path):
+        for date in os.listdir(in_path + "/" + station):
+            files.append([station, date])
+    
+    return files
+
+
+def save_all_timeseries_plot(ind):
+    station, date = get_station_file_list2()[ind][0], get_station_file_list2()[ind][1]
+    in_path = "./results/timeseries/clipped/"
+    out_path = "./results/figures/timeseries/"
+    make_output_folder(out_path)
+    make_output_folder(out_path + str(station) + "/")
+
+    timeseries_fig = plot_timeseries(station, date)
+    timeseries_fig.write_image(out_path + "/" + station + "/" + date.replace(".parquet", "") + ".png")
 
 
 # RAYDEC PLOT
@@ -296,6 +328,71 @@ def plot_sensitivity_test():
         )
 
 
+def plot_ellipticity():
+    in_path = "./results/raydec/"
+    out_path = "./results/figures/ellipticity/"
+    make_output_folder(out_path)
+    for station in os.listdir(in_path):
+        make_output_folder(out_path + str(station) + "/")
+        for date in os.listdir(in_path + "/" + station):
+
+            # date = date.removesuffix(".nc").rsplit("-")[1]
+            date = date.removesuffix(".nc")
+            file_name = str(station) + "/" + str(date)
+            path_raydec = "./results/raydec/" + file_name + ".nc"
+
+            da_raydec = xr.open_dataarray(path_raydec)
+            da_raydec = da_raydec.dropna(dim="freqs")
+            # mean = da_raydec.mean(dim="wind")
+
+            raydec_fig = px.line(
+                da_raydec,
+                color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
+                log_x=True,
+            )
+            raydec_fig.write_image(
+                "./results/figures/ellipticity/" + station + "/" + date + ".png"
+            )
+
+
+# move to utils
+def get_station_file_list():
+    files = []
+    in_path = "./results/raydec/"
+    for station in os.listdir(in_path):
+        for date in os.listdir(in_path + "/" + station):
+            files.append([station, date])
+    
+    return files
+
+
+def plot_full_ellipticity(ind):
+    station, date = get_station_file_list()[ind][0], get_station_file_list()[ind][1]
+    in_path = "./results/raydec/"
+    out_path = "./results/figures/ellipticity/"
+    make_output_folder(out_path)
+    make_output_folder(out_path + str(station) + "/")
+
+    # date = date.removesuffix(".nc").rsplit("-")[1]
+    date = date.removesuffix(".nc")
+    file_name = str(station) + "/" + str(date)
+    path_raydec = in_path + file_name + ".nc"
+
+    da_raydec = xr.open_dataarray(path_raydec)
+    da_raydec = da_raydec.dropna(dim="freqs")
+    # mean = da_raydec.mean(dim="wind")
+
+    raydec_fig = px.line(
+        da_raydec,
+        color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
+        log_x=True,
+    )
+    raydec_fig.write_image(
+        "./results/figures/ellipticity/" + station + "/" + date + ".png"
+    )
+
+
+
 # STACKING PLOT
 
 
@@ -365,11 +462,6 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    # plot_temperature()
-    # save_all_timeseries_plot()
-    # save_all_timeseries_plot()
-    # plot_stacking()
-
-    # fig = plot_map()
-    fig = plot_from_xml()
-    fig.show()
+    #save_all_timeseries_plot()
+    ind = int(sys.argv[1])
+    save_all_timeseries_plot(ind)

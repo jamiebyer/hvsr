@@ -23,13 +23,13 @@ def get_ellipticity(
     cycles=10,
     dfpar=0.1,
     len_wind=3 * 60,
-    remove_spikes=False,
+    remove_spikes=True,
 ):
     # loop over saved time series files
     # raydec
     # number of windows based on size of slice
 
-    dir_in = "./results/timeseries/" + str(station) + "/" + date
+    dir_in = "./results/timeseries/clipped/" + str(station) + "/" + date
     df_in = pd.read_parquet(dir_in, engine="pyarrow")
     if remove_spikes:
         df_in[df_in["spikes"]] = np.nan
@@ -118,9 +118,9 @@ def write_raydec_df(
     return date
 
 
-def remove_window_outliers(df_raydec, scale_factor):
+def remove_window_outliers(df_raydec):
     """
-    remove outliers from phase dispersion. windows with values further than 3 std from mean
+    remove outlier windows with values further than 3 std from mean
     """
     mean = np.mean(df_raydec, axis=1)
     std = np.std(df_raydec, axis=1)
@@ -128,7 +128,8 @@ def remove_window_outliers(df_raydec, scale_factor):
     # diff_from_mean = np.abs(mean - df_raydec)
     diff_from_mean = df_raydec.sub(df_raydec.mean(axis=1), axis=0)
 
-    outlier_inds = np.any(diff_from_mean.T > scale_factor * std, axis=1)
+    # ellipticity will always be positive
+    outlier_inds = np.any(diff_from_mean.T > 3 * std, axis=1)
     outlier_inds = outlier_inds.astype(int).rename("outliers").to_frame().T
     df_raydec = dd.concat([df_raydec, outlier_inds])
 
@@ -137,6 +138,34 @@ def remove_window_outliers(df_raydec, scale_factor):
     df_raydec["mean"] = mean
 
     return df_raydec
+
+
+def remove_all_window_outliers():
+    in_dir = "./results/raydec/"
+    # clean up
+    station_list = []
+    for station in os.listdir(in_dir):
+        for date in os.listdir(in_dir + station):
+            station_list.append([station, date])
+    
+    # later add this to first ellipticity run
+
+    station, date = station_list[ind][0], station_list[ind][1]
+    da_raydec = xr.open_dataarray(in_dir + "/" + station + "/" + date)
+    # label outliers
+    da_raydec = remove_window_outliers(da_raydec)
+    
+
+    # save labeled outliers back to nc
+    da_raydec.to_netcdf(
+        in_dir + str(station) + "/" + date
+    )
+     
+    # and save to csv without outliers
+    da_raydec.to_dataframe(name="ellipticity").to_csv(
+        in_dir + str(station) + "/" + date.replace(".nc", ".csv")
+    )
+
 
 
 def process_station_ellipticity(

@@ -34,26 +34,42 @@ def get_full_timeseries_stats():
     pd.DataFrame(stats).to_csv("./results/timeseries/stats.csv")
 
 
-def label_spikes():
-    path = "./results/timeseries/"
-    # read in timeseries stats
-    stats = pd.read_csv(path + "stats.csv", index_col=0)
-    # read in timeseries slice
+def create_file_list(ind):
+    path = "./results/timeseries/clipped/"
+    file_path = []
     for station in os.listdir(path):
         for date in os.listdir(path + "/" + station):
             if not os.path.isfile(path + "/" + station + "/" + date):
                 continue
-            df = pd.read_parquet(path + "/" + station + "/" + date)
-            magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"])
-            # print(stats[station + "/" + date.replace(".parquet", "")])
-            std = stats[station + "/" + date.replace(".parquet", "")]["full_std"]
-            if np.all(np.isnan(std)):
-                continue
+            file_path.append([station, date])
 
-            df["spikes"] = magnitude >= 3 * std
-            
-            df.to_parquet(path + "/" + station + "/" + date)
+    station = file_path[ind][0]
+    date = file_path[ind][1]
 
+    df = pd.read_parquet(path + station + "/" + date)
+
+    return df, station, date
+
+
+def label_spikes(ind):
+    path = "./results/timeseries/clipped/"
+    # read in timeseries stats
+    stats = pd.read_csv("./results/timeseries/stats.csv", index_col=0)
+    # read in timeseries slice
+    df, station, date = create_file_list(ind)
+    magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"]**2)
+    # print(stats[station + "/" + date.replace(".parquet", "")])
+    std = stats[station + "/" + date.replace(".parquet", "")]["full_std"]
+    if not np.all(np.isnan(std)):
+        print("\nstd", std)
+        df["magnitude"] = magnitude
+        df["spikes"] = magnitude >= 3 * std
+        print("spikes", np.sum(df["spikes"]), "/", len(df["spikes"]))
+        
+        df.to_parquet(path + "/" + station + "/" + date)
+
+
+    
 
 def get_time_slice(df):
     """
@@ -223,5 +239,6 @@ if __name__ == "__main__":
     run from terminal
     """
 
+    ind = int(sys.argv[1])
     # get_full_timeseries_stats()
-    label_spikes()
+    label_spikes(ind)
