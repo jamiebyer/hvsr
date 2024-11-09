@@ -2,7 +2,7 @@ from obspy import read
 import numpy as np
 import datetime
 import pandas as pd
-from utils import make_output_folder
+from src.utils.utils import make_output_folder
 from dateutil import tz
 import sys
 import os
@@ -44,14 +44,15 @@ def label_spikes():
             if not os.path.isfile(path + "/" + station + "/" + date):
                 continue
             df = pd.read_parquet(path + "/" + station + "/" + date)
-            magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"])
+            magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"] ** 2)
             # print(stats[station + "/" + date.replace(".parquet", "")])
             std = stats[station + "/" + date.replace(".parquet", "")]["full_std"]
             if np.all(np.isnan(std)):
                 continue
 
-            df["spikes"] = magnitude >= 3 * std
-            
+            df["magnitude"] = magnitude
+            df["spikes"] = magnitude >= (3 * std)
+
             df.to_parquet(path + "/" + station + "/" + date)
 
 

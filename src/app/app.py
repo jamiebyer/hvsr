@@ -6,15 +6,15 @@ from dash.dependencies import Input, Output, State
 from flask import Flask
 import plotly.graph_objects as go
 import os
-from layout import layout
+from src.app.layout import layout
 import pandas as pd
 import json
 import plotly.graph_objects as go
 from datetime import datetime
 
 from plotting import plot_timeseries, plot_raydec, plot_temperature
-from ellipticity_processing import write_raydec_df, stack_station_windows
-from utils import make_output_folder
+from src.processing.ellipticity_processing import write_raydec_df, stack_station_windows
+from src.utils.utils import make_output_folder
 import xarray as xr
 
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]

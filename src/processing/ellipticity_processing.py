@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import os
-from raydec import raydec
-from utils import make_output_folder
+from src.processing.raydec import raydec
+from src.utils.utils import make_output_folder
 from dateutil import tz
 import sys
 import json
@@ -117,7 +117,7 @@ def write_raydec_df(
     return date
 
 
-def remove_window_outliers(df_raydec, scale_factor):
+def label_window_outliers(df_raydec, scale_factor):
     """
     remove outliers from phase dispersion. windows with values further than 3 std from mean
     """
@@ -204,6 +204,10 @@ def sensitivity_test(ind):
         )
 
     write_raydec_df(station, date, *params[ind])
+
+
+def calc_stacked_std():
+    pass
 
 
 def stack_station_windows():
