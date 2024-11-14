@@ -160,6 +160,197 @@ def plot_ellipticity():
             )
 
 
+def plot_ellipticity_outliers():
+    in_path = "./results/raydec/QC_std3/"
+    out_path = "./results/figures/ellipticity/QC_3/"
+    make_output_folder(out_path)
+    for station in os.listdir(in_path)[30:35]:
+        print(station)
+        make_output_folder(out_path + str(station) + "/")
+        for date in os.listdir(in_path + station):
+            da_ellipticity = xr.open_dataarray(in_path + station + "/" + date)
+
+            plt.close()
+
+            fig, axs = plt.subplots(figsize=(20, 14), nrows=2, ncols=2)
+
+            da_ellipticity.plot.line(
+                x="freqs",
+                ax=axs[0, 0],
+                color=(0.1, 0.1, 0.1, 0.1),
+                xscale="log",
+                add_legend=False,
+            )
+
+            if np.any(da_ellipticity["QC_0"] == False):
+                da_ellipticity[:, da_ellipticity["QC_0"] == False].plot.line(
+                    x="freqs",
+                    ax=axs[1, 0],
+                    color=(0.1, 0.1, 0.1, 0.1),
+                    xscale="log",
+                    add_legend=False,
+                )
+            axs[1, 0].set_title(np.sum(da_ellipticity["QC_0"].values))
+
+            if np.any(da_ellipticity["QC_1"] == False):
+                da_ellipticity[:, da_ellipticity["QC_1"] == False].plot.line(
+                    x="freqs",
+                    ax=axs[0, 1],
+                    color=(0.1, 0.1, 0.1, 0.1),
+                    xscale="log",
+                    add_legend=False,
+                )
+            axs[0, 1].set_title(np.sum(da_ellipticity["QC_1"].values))
+
+            if np.any(da_ellipticity["QC_2"] == False):
+                da_ellipticity[:, da_ellipticity["QC_2"] == False].plot.line(
+                    x="freqs",
+                    ax=axs[1, 1],
+                    color=(0.1, 0.1, 0.1, 0.1),
+                    xscale="log",
+                    add_legend=False,
+                )
+
+            axs[1, 1].set_title(np.sum(da_ellipticity["QC_2"].values))
+
+            plt.tight_layout()
+
+            plt.savefig(out_path + station + "/" + date.replace(".nc", ".png"))
+
+
+def plot_best_ellipticity():
+    stations = [
+        "24025",
+        "24237",
+        "24321",
+        "24323",
+        "24387",
+        "24446",
+        "24510",
+        "24527",
+        "24614",
+        "24625",
+        "24645",
+        "24702",
+        # "24704",
+        "24708",
+        "24718",
+        "24741",
+        "24928",
+        "24952",
+        "24968",
+        "25009",
+        "25088",
+        "25089",
+        "25097",
+        "25215",
+        "25226",
+        "25229",
+        "25242",
+        "25257",
+        "25354",
+        "25361",
+        "25390",
+    ]
+    dates = [
+        "2024-07-03",
+        "2024-06-14",
+        "2024-06-13",
+        "2024-07-04",
+        "2024-07-03",
+        "2024-06-14",
+        "2024-07-04",
+        "2024-07-01",
+        "2024-06-09",
+        "2024-07-04",
+        "2024-07-03",
+        "2024-06-30",
+        # "",
+        "2024-06-09",
+        "2024-06-24",
+        "2024-06-30",
+        "2024-06-30",
+        "2024-06-30",
+        "2024-06-26",
+        "2024-06-15",
+        "2024-06-12",
+        "2024-07-04",
+        "2024-06-26",
+        "2024-07-04",
+        "2024-07-04",
+        "2024-07-01",
+        "2024-07-01",
+        "2024-06-14",
+        "2024-06-14",
+        "2024-06-21",
+        "2024-07-04",
+    ]
+
+    order = [
+        3,
+        1,
+        3,
+        3,
+        3,
+        1,
+        1,
+        3,
+        3,
+        1,
+        3,
+        1,
+        # None,
+        3,
+        3,
+        3,
+        3,
+        1,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        1,
+        1,
+        1,
+        3,
+        3,
+    ]
+
+    in_path = "./results/raydec/QC_std2/"
+    out_path = "./results/figures/ellipticity/best/"
+    make_output_folder(out_path)
+    for i in range(len(stations)):
+        station = stations[i]
+        print(station)
+        make_output_folder(out_path + str(station) + "/")
+        for date in os.listdir(in_path + station):
+            if dates[i] in date:
+                da_ellipticity = xr.open_dataarray(in_path + station + "/" + date)
+
+                plt.close()
+
+                # fig, axs = plt.subplots(figsize=(20, 14), nrows=2, ncols=2)
+
+                if np.any(da_ellipticity["QC_" + str(order[i] - 1)] == False):
+                    da_ellipticity[
+                        :, da_ellipticity["QC_" + str(order[i] - 1)] == False
+                    ].plot.line(
+                        x="freqs",
+                        color=(0.1, 0.1, 0.1, 0.1),
+                        xscale="log",
+                        add_legend=False,
+                    )
+                plt.title(np.sum(da_ellipticity["QC_" + str(order[i] - 1)].values))
+
+                plt.tight_layout()
+
+                plt.savefig(out_path + station + "_" + date.replace(".nc", ".png"))
+
+
 # STACKING PLOT
 
 
