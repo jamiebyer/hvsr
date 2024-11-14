@@ -8,6 +8,7 @@ import sys
 import json
 import time
 import dask.dataframe as dd
+import dask.array as da
 import xarray as xr
 
 
@@ -118,29 +119,27 @@ def write_raydec_df(
     return date
 
 
-def remove_window_outliers(df_raydec):
+def remove_window_outliers(da_raydec):
     """
     remove outlier windows with values further than 3 std from mean
     """
-    mean = np.mean(df_raydec, axis=1)
-    std = np.std(df_raydec, axis=1)
+    std = np.std(da_raydec, axis=1)
 
     # diff_from_mean = np.abs(mean - df_raydec)
-    diff_from_mean = df_raydec.sub(df_raydec.mean(axis=1), axis=0)
+    #diff_from_mean = da.abs(da.subtract(da_raydec, da_raydec.mean(axis=1), axis=0))
+    diff_from_mean = da.abs(da.subtract(da_raydec, da_raydec.mean(axis=1)))
 
-    # ellipticity will always be positive
-    outlier_inds = np.any(diff_from_mean.T > 3 * std, axis=1)
-    outlier_inds = outlier_inds.astype(int).rename("outliers").to_frame().T
-    df_raydec = dd.concat([df_raydec, outlier_inds])
-
-    mean_inds = df_raydec.loc["outliers"] == 0
-    mean = np.nanmean(df_raydec.loc[:, mean_inds], axis=1)
-    df_raydec["mean"] = mean
-
-    return df_raydec
+    outlier_inds = np.any(diff_from_mean.T >= 3 * std, axis=1)
+    da_raydec["outliers"] = outlier_inds.astype(int)
 
 
-def remove_all_window_outliers():
+    #outlier_inds = outlier_inds.astype(int).rename("outliers").compute().T
+    #da_raydec = dd.concat([da_raydec, outlier_inds])
+
+    return da_raydec
+
+
+def remove_all_window_outliers(ind):
     in_dir = "./results/raydec/"
     # clean up
     station_list = []
@@ -152,18 +151,22 @@ def remove_all_window_outliers():
 
     station, date = station_list[ind][0], station_list[ind][1]
     da_raydec = xr.open_dataarray(in_dir + "/" + station + "/" + date)
+
     # label outliers
     da_raydec = remove_window_outliers(da_raydec)
-    
 
     # save labeled outliers back to nc
+    print(da_raydec)
     da_raydec.to_netcdf(
         in_dir + str(station) + "/" + date
     )
      
     # and save to csv without outliers
-    da_raydec.to_dataframe(name="ellipticity").to_csv(
-        in_dir + str(station) + "/" + date.replace(".nc", ".csv")
+    df_raydec = da_raydec.to_dataframe(name="ellipticity")
+    make_output_folder("./results/raydec/csv/")
+    make_output_folder("./results/raydec/csv/" + station)
+    df_raydec[df_raydec["outliers"] == 0].to_csv(
+        in_dir + "csv/"+ str(station) + "/" + date.replace(".nc", ".csv")
     )
 
 
@@ -234,42 +237,44 @@ def sensitivity_test(ind):
 
     write_raydec_df(station, date, *params[ind])
 
-
-def stack_station_windows():
+def get_station_list():
+    stations = []
     in_dir = "./results/raydec/"
-    for station in ["24625"]:  # os.listdir(in_dir):
-        if station not in ["stacked", "raydec"]:
-            stack_columns = []
-            stack_data = []
-            for file in os.listdir(in_dir + station):
-                # add average to dataframe
-                da_raydec = xr.open_dataarray(in_dir + station + "/" + file)
-                stack_columns.append(file.rsplit("-", 1)[0])
-                mean = da_raydec.mean(dim="wind")
-                stack_data.append(mean)
+    for station in os.listdir(in_dir):
+        stations.append(station)
+    
+    return stations
 
-                # using the last freqs, assuming theyre all the same
-                freqs = da_raydec.coords["freqs"]
 
-            stack_columns.append("mean")
-            mean = np.array(stack_data).mean(axis=0)
-            stack_data.append(mean)
+def stack_station_windows(ind):
+    in_dir = "./results/raydec/"
+    station = get_station_list()[ind]
+    if station not in ["stacked", "csv"]:
+        data_arrays = []
+        files = os.listdir(in_dir + station)
+        for file in files:
+            # to dataframe
+            da_raydec = xr.open_dataarray(in_dir + station + "/" + file).to_dataset(name="ellipticity") 
+            #print(da_raydec.coords)
+            #print(da_raydec.dims)
+            #da_raydec.coords["file"] = file
+            #da_raydec.expand_dims("file")
+            data_arrays.append(da_raydec)
+        
+        #da_stack = xr.combine_by_coords(data_arrays, data_vars="ellipticity")
+        #da_stack = xr.combine_nested(data_arrays, concat_dim=["ellipticity"])
+        da_stack = xr.combine_nested(data_arrays, concat_dim="files")
+        #da_stack = xr.combine_by_coords(data_arrays, data_vars="ellipticity", coords=["wind", "freqs"])
+        #da_stack = xr.combine_by_coords(data_arrays, data_vars="ellipticity", coords=["wind", "freqs"])
+        make_output_folder("./results/raydec/stacked/")
+        # write station df to csv
 
-            da_stack = xr.DataArray(
-                np.array(stack_data).T, {"freqs": freqs, "date": stack_columns}
-            )
+        da_stack.to_dataframe().to_csv(
+            "./results/raydec/stacked/csv/" + str(station) + "_full.csv"
+        )
 
-            make_output_folder("./results/raydec/stacked/")
-            # write station df to csv
+        da_stack.to_netcdf("./results/raydec/stacked/nc/" + str(station) + "_full.nc")
 
-            da_stack.to_dataframe(name="ellipticity").to_csv(
-                "./results/raydec/stacked/" + str(station) + "_full.csv"
-            )
-            da_stack.sel(date="mean").to_dataframe(name="ellipticity").to_csv(
-                "./results/raydec/stacked/" + str(station) + "_mean.csv"
-            )
-
-            # da_stack.to_netcdf("./results/raydec/stacked/" + str(station) + ".nc")
 
 
 if __name__ == "__main__":
@@ -282,5 +287,5 @@ if __name__ == "__main__":
     # sbatch slice_timeseries_job.slurm
 
     ind = int(sys.argv[1])
-
-    process_station_ellipticity(ind)
+    #ind = 2
+    stack_station_windows(ind)
