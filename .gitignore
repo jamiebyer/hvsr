@@ -4,3 +4,5 @@ src/__pycache__/*
 src/processing/__pycache__/*
 src/plotting/__pycache__/*
 src/utils/__pycache__/*
+Miniforge3-Linux-x86_64.sh
+report/*

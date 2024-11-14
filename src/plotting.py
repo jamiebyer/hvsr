@@ -347,7 +347,8 @@ def plot_ellipticity():
 
             raydec_fig = px.line(
                 da_raydec,
-                color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
+                #color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
+                color=da_raydec["outliers"].values,
                 log_x=True,
             )
             raydec_fig.write_image(
@@ -360,6 +361,8 @@ def get_station_file_list():
     files = []
     in_path = "./results/raydec/"
     for station in os.listdir(in_path):
+        if station == "csv":
+            continue
         for date in os.listdir(in_path + "/" + station):
             files.append([station, date])
     
@@ -380,14 +383,18 @@ def plot_full_ellipticity(ind):
 
     da_raydec = xr.open_dataarray(path_raydec)
     da_raydec = da_raydec.dropna(dim="freqs")
+
     # mean = da_raydec.mean(dim="wind")
 
-    raydec_fig = px.line(
-        da_raydec,
-        color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
-        log_x=True,
-    )
-    raydec_fig.write_image(
+    raydec_fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    da_raydec.isel(wind=da_raydec["outliers"]==0).plot.line(x="freqs", color=(0.3, 0.3, 0.3, 0.2), ax=ax1)
+    da_raydec.isel(wind=da_raydec["outliers"]==1).plot.line(x="freqs", color=(0.3, 0, 0, 0.2), ax=ax1)
+
+    da_raydec.isel(wind=da_raydec["outliers"]==0).plot.line(x="freqs", color=(0.3, 0.3, 0.3, 0.2), ax=ax2)
+    
+    plt.xscale("log")
+    plt.tight_layout()
+    raydec_fig.savefig(
         "./results/figures/ellipticity/" + station + "/" + date + ".png"
     )
 
@@ -464,4 +471,5 @@ if __name__ == "__main__":
 
     #save_all_timeseries_plot()
     ind = int(sys.argv[1])
-    save_all_timeseries_plot(ind)
+    #ind = 2
+    plot_full_ellipticity(ind)
