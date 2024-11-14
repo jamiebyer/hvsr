@@ -5,7 +5,7 @@ import datetime
 import pandas as pd
 import os
 import sys
-from utils import is_int, is_date, is_float
+from src.utils.utils import is_int, is_date, is_float
 
 
 ####### PARSING XML ######

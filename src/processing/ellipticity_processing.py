@@ -1,11 +1,9 @@
 import numpy as np
 import pandas as pd
 import os
-from raydec import raydec
-from utils import make_output_folder
-from dateutil import tz
+from src.processing.raydec import raydec
+from src.utils.utils import make_output_folder
 import sys
-import json
 import time
 import dask.dataframe as dd
 import dask.array as da
@@ -119,7 +117,7 @@ def write_raydec_df(
     return date
 
 
-def remove_window_outliers(da_raydec):
+def label_window_outliers(df_raydec):
     """
     remove outlier windows with values further than 3 std from mean
     """
@@ -146,7 +144,7 @@ def remove_all_window_outliers(ind):
     for station in os.listdir(in_dir):
         for date in os.listdir(in_dir + station):
             station_list.append([station, date])
-    
+
     # later add this to first ellipticity run
 
     station, date = station_list[ind][0], station_list[ind][1]
@@ -156,11 +154,8 @@ def remove_all_window_outliers(ind):
     da_raydec = remove_window_outliers(da_raydec)
 
     # save labeled outliers back to nc
-    print(da_raydec)
-    da_raydec.to_netcdf(
-        in_dir + str(station) + "/" + date
-    )
-     
+    da_raydec.to_netcdf(in_dir + str(station) + "/" + date)
+
     # and save to csv without outliers
     df_raydec = da_raydec.to_dataframe(name="ellipticity")
     make_output_folder("./results/raydec/csv/")
@@ -168,7 +163,6 @@ def remove_all_window_outliers(ind):
     df_raydec[df_raydec["outliers"] == 0].to_csv(
         in_dir + "csv/"+ str(station) + "/" + date.replace(".nc", ".csv")
     )
-
 
 
 def process_station_ellipticity(
@@ -237,8 +231,11 @@ def sensitivity_test(ind):
 
     write_raydec_df(station, date, *params[ind])
 
-def get_station_list():
-    stations = []
+def calc_stacked_std():
+    pass
+
+
+def stack_station_windows():
     in_dir = "./results/raydec/"
     for station in os.listdir(in_dir):
         stations.append(station)

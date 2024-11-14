@@ -2,7 +2,7 @@ from obspy import read
 import numpy as np
 import datetime
 import pandas as pd
-from utils import make_output_folder
+from src.utils.utils import make_output_folder
 from dateutil import tz
 import sys
 import os
@@ -41,6 +41,7 @@ def create_file_list(ind):
         for date in os.listdir(path + "/" + station):
             if not os.path.isfile(path + "/" + station + "/" + date):
                 continue
+
             file_path.append([station, date])
 
     station = file_path[ind][0]
@@ -57,7 +58,7 @@ def label_spikes(ind):
     stats = pd.read_csv("./results/timeseries/stats.csv", index_col=0)
     # read in timeseries slice
     df, station, date = create_file_list(ind)
-    magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"]**2)
+    magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"] ** 2)
     # print(stats[station + "/" + date.replace(".parquet", "")])
     std = stats[station + "/" + date.replace(".parquet", "")]["full_std"]
     if not np.all(np.isnan(std)):
@@ -65,11 +66,9 @@ def label_spikes(ind):
         df["magnitude"] = magnitude
         df["spikes"] = magnitude >= 3 * std
         print("spikes", np.sum(df["spikes"]), "/", len(df["spikes"]))
-        
+
         df.to_parquet(path + "/" + station + "/" + date)
 
-
-    
 
 def get_time_slice(df):
     """
