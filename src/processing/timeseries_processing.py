@@ -2,7 +2,7 @@ from obspy import read
 import numpy as np
 import datetime
 import pandas as pd
-from src.utils.utils import make_output_folder
+from utils.utils import make_output_folder
 from dateutil import tz
 import sys
 import os
@@ -13,7 +13,7 @@ import pyarrow.parquet as pq
 
 
 # public method
-def convert_miniseed_to_parquet(in_path=r"./", out_path=r"./"):
+def convert_miniseed_to_parquet(in_path=r"/home/gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/", out_path=r"./results/timeseries/raw/"):
     """
     Loop over raw timeseries miniseed files from smart solo geophone.
     Consolodate 3 components (vert, north, east) into one file.
@@ -22,15 +22,15 @@ def convert_miniseed_to_parquet(in_path=r"./", out_path=r"./"):
     :param in_path: path of directory containing miniseed files
     """
     # Loop over raw miniseed files
-
+    make_output_folder(out_path)
     for file_name in os.listdir(in_path):
-        if ".E." not in file:
+        print(file_name)
+        if ".E." not in file_name:
             continue
         # read in miniseed
         stream_east = read(in_path + file_name, format="mseed")
         stream_north = read(in_path + file_name.replace(".E.", ".N."), format="mseed")
         stream_vert = read(in_path + file_name.replace(".E.", ".Z."), format="mseed")
-
 
         # validate input file
 
@@ -45,37 +45,50 @@ def convert_miniseed_to_parquet(in_path=r"./", out_path=r"./"):
 
         # using times from only east component... validate somehow?
 
-        dates = trace_east.times(type="utcdatetime")
+        dates = [d.datetime for d in trace_east.times(type="utcdatetime")]
         # time passed, used in raydec
         times = trace_east.times()
         times -= times[0]
 
-        # also get station
+        # get station
+        station = trace_east.stats["station"]
 
         # save miniseed file info
         east, north, vert = trace_east.data, trace_north.data, trace_vert.data
-        start_date, sampling_rate, sample_spacing = (
+        # could save these stats later
+        """
+        # get serial number and day number from miniseed filename
+        start_date, sampling_rate, delta, npts = (
             trace_east.stats["starttime"],
             trace_east.stats["sampling_rate"],
             trace_east.stats["delta"],
+            trace_east.stats["npts"],            
         )
+        """
+        magnitude = np.sqrt(vert**2 + north**2 + east**2)
 
-        df = pd.DataFrame(
+        df_timeseries = pd.DataFrame(
             {
                 "date": dates,
                 "time": times,
                 "vert": vert,
                 "north": north,
                 "east": east,
+                "magnitude": magnitude,
             },
         )
 
-        # compare/save file size difference
         # write to parquet
 
-        # folders for diff stations, with date as filename.
+        # make output folders for diff stations, with date as filename
+
+        start_date = str(trace_east.stats["starttime"]).split("T")[0]
         # save with parquet to compress
-        df_timeseries.to_parquet(output_dir + "/" + f[0] + "/" + f[1] + ".parquet")
+        make_output_folder(out_path + station)
+        df_timeseries.to_parquet(out_path + station + "/" + start_date + ".parquet")
+
+        # compare/save file size difference
+        # 212 GB for miniseed
 
 
 
