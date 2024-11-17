@@ -2,7 +2,7 @@ from obspy import read
 import numpy as np
 import datetime
 import pandas as pd
-from utils.utils import make_output_folder
+from utils.utils import make_output_folder, create_file_list
 from dateutil import tz
 import sys
 import os
@@ -10,7 +10,6 @@ import pyarrow.parquet as pq
 
 
 ###### TIMESERIES PROCESSING ######
-
 
 # public method
 def convert_miniseed_to_parquet(in_path=r"/home/gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/", out_path=r"./results/timeseries/raw/"):
@@ -23,6 +22,7 @@ def convert_miniseed_to_parquet(in_path=r"/home/gilbert_lab/Whitehorse_ANT/White
     """
     # Loop over raw miniseed files
     make_output_folder(out_path)
+    full_timeseries_stats = {}
     for file_name in os.listdir(in_path):
         print(file_name)
         if ".E." not in file_name:
@@ -52,6 +52,12 @@ def convert_miniseed_to_parquet(in_path=r"/home/gilbert_lab/Whitehorse_ANT/White
 
         # get station
         station = trace_east.stats["station"]
+
+        # also get station
+        if station not in full_timeseries_stats:
+            full_timeseries_stats[station] = {}
+        # get stats for whole timeseries
+        full_timeseries_stats[station][date] = get_timeseries_stats(vert, north, east)
 
         # save miniseed file info
         east, north, vert = trace_east.data, trace_north.data, trace_vert.data
@@ -92,98 +98,67 @@ def convert_miniseed_to_parquet(in_path=r"/home/gilbert_lab/Whitehorse_ANT/White
 
 
 
-# private method
-def get_full_timeseries_stats(in_path=r"/run/media/jbyer/Backup/raw/"):
+def get_timeseries_stats(include_outliers, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", out_file_name="timeseries_stats"):
     """
-    in_path: path with timeseries data
     """
 
-    stats = {}
-    for station in os.listdir(path):
-        for date in os.listdir(path + station):
-            df = pd.read_csv(path + station + "/" + date)
-            magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"])
-            stats[station + "/" + date.replace(".csv", "")] = {
+    timeseries_stats = {}
+    for station in os.listdir(in_path):
+        timeseries_stats[station] = {}
+        for file in os.listdir(in_path + station):
+            date = file.replace(".parquet", "")
+            df_timeseries = pd.read_parquet(in_path + station + "/" + file, engine="pyarrow")
+            if include_outliers == False:
+                # subset timeseries so only valid points are included
+                df_timeseries = df_timeseries[df_timeseries["outliers"] == 0]
+
+            # get stats
+            magnitude, vert, north, east = df_timeseries["magnitude"], df_timeseries["vert"], df_timeseries["north"], df_timeseries["east"]
+            timeseries_stats[station][date] = {
+                "length": np.size(magnitude),
                 "full_mean": magnitude.mean(),
                 "full_std": magnitude.std(),
-                "vert_mean": df["vert"].mean(),
-                "vert_std": df["vert"].std(),
-                "north_mean": df["north"].mean(),
-                "north_std": df["north"].std(),
-                "east_mean": df["east"].mean(),
-                "east_std": df["east"].std(),
+                "vert_mean": np.mean(vert),
+                "vert_std": np.std(vert),
+                "north_mean": np.mean(north),
+                "north_std": np.std(north),
+                "east_mean": np.mean(east),
+                "east_std": np.std(east),
             }
 
-    pd.DataFrame(stats).to_csv("./results/timeseries/stats.csv")
+    # save stats to df
+    df = pd.DataFrame(timeseries_stats)
+    df.to_csv(output_dir + "/" + out_file_name + ".csv")
 
-# public method
-def get_clean_timeseries_slice(in_path):
+
+# move to main...
+def save_full_timeseries_stats():
+    get_timeseries_stats(include_outliers=False, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", "full_timeseries_cleaned")
+    get_timeseries_stats(include_outliers=True, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", "full_timeseries")
+
+def save_timeseries_slice_stats():
+    # hourly for time slice?
+    get_timeseries_stats(include_outliers, in_path=r"./results/timeseries/clipped/", out_path=r"./results/timeseries/stats/", "sliced_timeseries_cleaned")
+
+
+def label_spikes(ind, std, in_path=r"./results/timeseries/raw/"):
     """
-    :param in_path: path to full timeseries parquet files.
-    """
+    remove spikes from timeseries data.
 
-    # get stats for whole timeseries
-
-    # remove outliers
-    # get stats for cleaned timeseries
-    # slice time
-    # stats for subsection (hourly? so different times can be picked later)
-
-
-
-
-    df = get_time_slice(df)
-
-    # making output paths
-    name = str(start_date).split("T")[0] + ".csv"
-    make_output_folder(output_dir)
-    make_output_folder(output_dir + "/" + str(station) + "/")
-    # save station timeseries to csv
-    df.to_csv(output_dir + "/" + str(station) + "/" + name)
-
-
-
-
-
-def clean_timeseries_files(ind, in_dir=r"./results/timeseries/"):
-    """
-    ind:
-    in_dir: input directory with saved timeseries csvs
-
-    read in saved timeseries csv.
-    label spikes based on full timeseries.
-    slice a subset of night timeseries.
-    saved with parquet for compression.
+    *** later may do LTA/STA ***
     """
 
-    # read in full night timeseries
-    df_timeseries = pd.read_csv(
-        in_dir + file_path[ind][0] + "/" + file_path[ind][1] + ".csv"
-    )
+    df_stats = pd.read_csv(r"./results/timeseries/stats/full_timeseries_cleaned", index_col=0)
+    
+    # read in timeseries slice
+    station, date = create_file_list(ind, in_path)
+    std = df_stats[station][date]["full_std"]
 
-    df_timeseries = df_timeseries.set_index(
-        pd.DatetimeIndex(pd.to_datetime(df_timeseries["dates"], format="ISO8601"))
-    )
+    if not np.all(np.isnan(std)):
+        df["magnitude"] = magnitude
+        df["spikes"] = magnitude >= 3 * std
 
-    df_timeseries = label_spikes(df_timeseries, spike_quartile=0.95)
-
-    # clip to  22:00 - 5:00
-    hours = df_timeseries.index.hour
-    df_timeseries = df_timeseries[np.any(np.array([hours >= 22, hours <= 5]), axis=0)]
-
-    # creating output folders
-    f = file_path[ind]
-    output_dir = in_dir + "clipped/"
-    make_output_folder(output_dir)
-    make_output_folder(output_dir + "/" + f[0] + "/")
-
-    # save with parquet to compress
-    df_timeseries.to_parquet(output_dir + "/" + f[0] + "/" + f[1] + ".parquet")
-
-
-
-
-
+        df.to_parquet(path + "/" + station + "/" + date)
 
 
 
@@ -205,60 +180,33 @@ def get_time_slice(df):
     return df
 
 
-def label_spikes(ind):
+def get_clean_timeseries_slice(in_path, out_path):
     """
-    remove spikes from timeseries data.
-    values over a certain quartile threshold
+    Remove outliers/spikes and slice timeseries. Save timeseries stats.
 
-
-    *** later may do LTA/STA ***
-    """
-    # originially using quantile:
-    """
-    df_timeseries["outliers"] = np.any(
-        df_timeseries[["vert", "north", "east"]].quantile(spike_quartile), axis=0
-    )
+    :param in_path: path to full timeseries parquet files.
     """
 
+    # remove outliers
 
-    path = "./results/timeseries/clipped/"
-    # read in timeseries stats
-    stats = pd.read_csv("./results/timeseries/stats.csv", index_col=0)
-    # read in timeseries slice
-    df, station, date = create_file_list(ind)
-    magnitude = np.sqrt(df["vert"] ** 2 + df["north"] ** 2 + df["east"] ** 2)
-    # print(stats[station + "/" + date.replace(".parquet", "")])
-    std = stats[station + "/" + date.replace(".parquet", "")]["full_std"]
-    if not np.all(np.isnan(std)):
-        print("\nstd", std)
-        df["magnitude"] = magnitude
-        df["spikes"] = magnitude >= 3 * std
-        print("spikes", np.sum(df["spikes"]), "/", len(df["spikes"]))
+    # read in stats for full timeseries
 
-        df.to_parquet(path + "/" + station + "/" + date)
+    label_spikes(ind, std, in_path=r"./results/timeseries/raw/")
 
 
+    # slice time
+
+    # stats for subsection (hourly? so different times can be picked later)
 
 
+    df = get_time_slice(df)
 
+    # making output paths
+    name = str(start_date).split("T")[0] + ".csv"
+    make_output_folder(output_dir)
+    make_output_folder(output_dir + "/" + str(station) + "/")
+    # save station timeseries to csv
+    df.to_csv(output_dir + "/" + str(station) + "/" + name)
 
-
-
-
-# dont think i need this anymore:
-
-def process_station_timeseries(ind, in_dir=r"./data/Whitehorse_ANT/"):
-    """
-    save a station
-    """
-    # save each station to a separate folder...
-    # input station list and file list to save
-
-    file_mapping = pd.read_csv("./data/file_information.csv", index_col=0).T
-    stations = file_mapping["station"].values
-    unique_stations = np.unique(stations)
-    s = unique_stations[ind]
-
-    slice_station_data(s, in_dir)
 
 
