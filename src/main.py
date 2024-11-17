@@ -1,8 +1,8 @@
 from processing.timeseries_processing import *
 from processing.ellipticity_processing import *
 
-from plotting.timeseries_processing import *
-from plotting.ellipticity_processing import *
+from plotting.timeseries_plotting import *
+from plotting.ellipticity_plotting import *
 
 
 # Looping over all stations
@@ -24,11 +24,16 @@ def create_file_list(ind):
 
     return df, station, date
 
-def process_timeseries():
+def process_data():
     # parsing xml....
+    pass
+
+def process_timeseries():
     # save data collection info, metadata whatever
 
-    # convert miniseed on glados to netCDF
+    # convert miniseed on glados to parquet
+    convert_miniseed_to_parquet()
+
     # get stats from full timeseries,
     # slice night,
     # remove outliers,
@@ -36,7 +41,6 @@ def process_timeseries():
 
     # for one station and for all stations
 
-    pass
 
 
 def process_ellipticity():
@@ -47,11 +51,5 @@ if __name__ == "__main__":
     """
     run from terminal
     """
-
-    save_to_csv()
-    """
-    std_n = 2
-    for ind in range(900):
-        print(ind)
-        label_all_window_outliers(ind, 3, std_n)
-    """
+    
+    process_timeseries()
