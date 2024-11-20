@@ -32,14 +32,19 @@ def process_timeseries():
     # save data collection info, metadata whatever
 
     # convert miniseed on glados to parquet
-    convert_miniseed_to_parquet()
+    #convert_miniseed_to_parquet()
 
     # get stats from full timeseries,
+    # get_timeseries_stats(include_outliers=True, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", out_file_name="full_timeseries")
+    
+    # label spikes and get stats for cleaned timeseries
+    # get_timeseries_stats(include_outliers=False, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", out_file_name="full_timeseries_cleaned")
+
     # slice night,
-    # remove outliers,
     # save as netCDF
 
     # for one station and for all stations
+    get_clean_timeseries_slice(False)
 
 
 

@@ -25,6 +25,22 @@
 2. Get initial stats for full timeseries and save to csv.
     - `get_timeseries_stats(include_outliers, in_path, out_path)`
     - save locally
+    - `rsync -a remote_user@remote_host_or_ip:/opt/media/ /opt/media/`
+
+
+You may use ssh to forward port 22 from machine3 to machine1 via machine2, like
+`user1@machine1:$ ssh -L 2222:machine3:22 user2@machine2`
+After that configure sshfs on machine1 to use localhost:2222 port (in the second terminal tab):
+`user1@machine1:$ sshfs user3@localhost:/some/machine3/dir /some/local/dir -p 2222`
+
+
+
+You may use ssh to forward port 22 from machine3 to machine1 via machine2, like
+`user1@machine1:$ ssh -L 2222:machine3:22 user2@machine2`
+After that configure sshfs on machine1 to use localhost:2222 port (in the second terminal tab):
+`user1@machine1:$ sshfs user3@localhost:/some/machine3/dir /some/local/dir -p 2222`
+
+
 
 3. Remove points with amplitude >= 3 standard deviation from mean for the current day. Get stats for the new timeseries. Select the night hours () from the timeseries, get new stats. Save this "processed" timeseries as parquet, and save stats to df.
     - `get_clean_timeseries_slice(in_path, out_path)`
