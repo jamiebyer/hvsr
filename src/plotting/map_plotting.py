@@ -14,8 +14,10 @@ from cartopy.io.img_tiles import GoogleTiles
 import cartopy.io.img_tiles as cimgt
 import cartopy.feature as cf
 
+from matplotlib import colors
 from matplotlib import patheffects
 from math import floor
+from scipy.signal import find_peaks
 
 
 def plot_globe():
@@ -177,6 +179,127 @@ def get_station_locations():
     return names, lats, lons
 
 
+def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
+
+    # Google image tiling
+    request1 = cimgt.GoogleTiles(style="satellite")
+    request2 = cimgt.GoogleTiles(
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}.jpg"
+    )
+
+    # Map projection
+    proj = ccrs.AlbersEqualArea(
+        central_longitude=-135.076167,
+        central_latitude=60.729549,
+        false_easting=0.0,
+        false_northing=0.0,
+        standard_parallels=(50, 70.0),
+        globe=None,
+    )
+
+    # Create figure and axis (you might want to edit this to focus on station coverage)
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(projection=proj)
+
+    ax.set_extent([-135.3, -134.9, 60.65, 60.81])
+
+    # Add background
+    ax.add_image(request2, 13)
+    ax.add_image(request1, 13, alpha=0.5)
+
+    # Draw gridlines
+    gl1 = ax.gridlines(
+        draw_labels=True,
+        xlocs=np.arange(-136.0, -134.0, 0.1),
+        ylocs=np.arange(60.0, 61.0, 0.1),
+        linestyle=":",
+        color="w",
+        zorder=2,
+    )
+
+    # Turn off labels on certin sides of figure
+    gl1.top_labels = False
+    gl1.right_labels = False
+
+    # Update label fontsize
+    gl1.xlabel_style = {"size": 10}
+    gl1.ylabel_style = {"size": 10}
+
+
+
+    positions_df = pd.read_csv("./data/station_positions.csv")
+    mapping_df = pd.read_csv("./data/f_0_mapping.csv")
+
+    f_0_sites = mapping_df["Site"].values
+
+    f_0_site_inds = np.array([c in f_0_sites for c in positions_df["Code"].values])
+
+
+    # plot blank sites
+    ax.scatter(
+        positions_df["Lon"][f_0_site_inds == False],
+        positions_df["Lat"][f_0_site_inds == False],
+        color="k",
+        marker="^",
+        s=75,
+        transform=ccrs.PlateCarree(),
+        zorder=9,
+        # label=names,
+    )
+    
+    # plot f_0 sites
+    f_0_list = []
+    a = 0
+    for site in positions_df["Code"][f_0_site_inds == True].values:
+        print(a)
+        name = mapping_df["Station"][f_0_sites == site].values[0].split("_")
+
+        station, date = name[0], name[1]
+        for i in os.listdir(in_path):
+            if station in i and date in i:
+                file = i
+        print(station, date)
+        df = pd.read_csv(in_path + file)
+
+        w = np.unique(df["wind"])[0]
+
+        median = df["median"][df["wind"]==w].values
+        freqs = df["freqs"][df["wind"]==w].values
+        
+        peaks, _ = find_peaks(median, height=0.7*median.max())
+
+        peak_ind=0
+        f_0 = freqs[peaks[peak_ind]]
+        f_0_list.append(f_0)
+        a+=1
+
+
+
+    cm = plt.cm.get_cmap('RdYlBu')
+    sc = ax.scatter(
+        positions_df["Lon"][f_0_site_inds == True],
+        positions_df["Lat"][f_0_site_inds == True],
+        c=f_0_list,
+        cmap=cm,
+        marker="^",
+        s=75,
+        transform=ccrs.PlateCarree(),
+        zorder=9,
+        # label=names,
+        norm=colors.LogNorm()
+    )
+
+    plt.colorbar(sc)
+
+    # Add scalebar
+    scale_bar(ax, proj, 6)
+    # plt.show()
+
+    # Save figure
+    plt.savefig("./results/figures/f_0_map.png", dpi=300, bbox_inches="tight")
+
+    
+
 def plot_map(fig, gs, station=None):
     names, lats, lons = get_station_locations()
     # print(np.unique(names).shape, np.unique(names)[:10])
@@ -240,11 +363,6 @@ def plot_map(fig, gs, station=None):
     )
 
     if station is not None and len(names) > 0:
-
-        # print(names)
-        # print(station)
-        # ind = np.argwhere(np.array(names) == station)
-
         ax.scatter(
             np.array(lons)[names == int(station)],
             np.array(lats)[names == int(station)],
@@ -265,9 +383,3 @@ def plot_map(fig, gs, station=None):
     return fig
 
 
-if __name__ == "__main__":
-    """
-    run from terminal
-    """
-
-    plot_from_xml()

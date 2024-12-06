@@ -8,6 +8,8 @@ import dask.dataframe as dd
 import dask.array as da
 import xarray as xr
 
+from scipy.signal import find_peaks
+import matplotlib.pyplot as plt
 
 ###### RAYDEC PROCESSING ######
 
@@ -33,13 +35,14 @@ def get_ellipticity(
         df_in[df_in["spikes"]] = np.nan
     df_in = df_in.dropna()
 
-    if len(df_in["times"]) < 1:
+    if len(df_in["time"]) < 1:
         return None
 
     # df_in.compute_chunk_sizes()
-    times = df_in["times"].dropna()  # .values
+    times = df_in["time"].values#.dropna()  # .values
+    #print(times)
 
-    times -= times[0]
+    #times -= times[0]
 
     # n_wind = int((times[-1] / len_wind).round().compute())
     n_wind = int(np.round(times[len(times) - 1] / len_wind))
@@ -103,20 +106,21 @@ def write_raydec_df(
     if raydec_ds is None:
         return None
 
-    make_output_folder("./results/raydec/")
-    make_output_folder("./results/raydec/" + str(station) + "/")
+    #make_output_folder("./results/raydec/")
+    make_output_folder("./results/raydec/0-2-dfpar/" + str(station) + "/")
     # write station df to csv
 
-    suffix = str(time.time()).split(".")[-1]
+    #suffix = str(time.time()).split(".")[-1]
 
     raydec_ds.to_netcdf(
-        "./results/raydec/" + str(station) + "/" + date + "-" + suffix + ".nc"
+        #"./results/raydec/" + str(station) + "/" + date + ".nc"
+        "./results/raydec/0-2-dfpar/" + str(station) + "/" + date + ".nc"
     )
 
     return date
 
 
-def label_window_outliers(df_raydec):
+def label_window_outliers_og(df_raydec):
     """
     remove outlier windows with values further than 3 std from mean
     """
@@ -136,7 +140,7 @@ def label_window_outliers(df_raydec):
 
 
 def remove_all_window_outliers(ind):
-    in_dir = "./results/raydec/"
+    in_dir = "./results/raydec/0-2-dfpar/"
     # clean up
     station_list = []
     for station in os.listdir(in_dir):
@@ -156,8 +160,8 @@ def remove_all_window_outliers(ind):
 
     # and save to csv without outliers
     df_raydec = da_raydec.to_dataframe(name="ellipticity")
-    make_output_folder("./results/raydec/csv/")
-    make_output_folder("./results/raydec/csv/" + station)
+    make_output_folder("./results/raydec/0-2-dfpar/csv/")
+    make_output_folder("./results/raydec/0-2-dfpar/csv/" + station)
     df_raydec[df_raydec["outliers"] == 0].to_csv(
         in_dir + "csv/" + str(station) + "/" + date.replace(".nc", ".csv")
     )
@@ -174,7 +178,7 @@ def process_station_ellipticity(
     f_max = 20
     f_steps = 100
     cycles = 10
-    df_par = 0.1
+    df_par = 0.2
     len_wind = 3 * 60
 
     station_list = []
@@ -236,9 +240,10 @@ def calc_stacked_std(std_n, da_ellipticity, outlier_inds):
     n_valid = np.sum(~outlier_inds)
 
     if n_valid == 0:
+        median = np.full(n_freqs, np.nan)
         mean = np.full(n_freqs, np.nan)
         s = np.full(n_freqs, np.nan)
-        return s, mean, outlier_inds.data
+        return s, mean, median, outlier_inds.data
 
     # calculate current mean, std
 
@@ -257,9 +262,12 @@ def calc_stacked_std(std_n, da_ellipticity, outlier_inds):
     # calculate updated mean, std without outliers
     n_valid = np.sum(~new_outlier_inds)
     if n_valid == 0:
+        median = np.full(n_freqs, np.nan)
         mean = np.full(n_freqs, np.nan)
         s = np.full(n_freqs, np.nan)
     else:
+
+        median = da_ellipticity[:, ~new_outlier_inds].median(dim="wind").data
 
         # get mean with current valid windows
         mean = da_ellipticity[:, ~new_outlier_inds].mean(dim="wind")
@@ -272,7 +280,7 @@ def calc_stacked_std(std_n, da_ellipticity, outlier_inds):
             (1 / (n_valid - 1)) * np.sum(diff_from_mean[:, ~outlier_inds] * 2, axis=1)
         ).data
 
-    return s, mean, new_outlier_inds.data
+    return s, mean, median, new_outlier_inds.data
 
 
 def label_window_outliers(df_raydec, order, std_n):
@@ -283,7 +291,7 @@ def label_window_outliers(df_raydec, order, std_n):
     outlier_inds = np.zeros(N).astype(bool)
 
     for i in range(order):
-        std, mean, new_outlier_inds = calc_stacked_std(std_n, df_raydec, outlier_inds)
+        std, mean, median, new_outlier_inds = calc_stacked_std(std_n, df_raydec, outlier_inds)
         outlier_inds = outlier_inds | new_outlier_inds
 
         df_raydec = df_raydec.assign_coords(
@@ -291,6 +299,7 @@ def label_window_outliers(df_raydec, order, std_n):
                 "QC_" + str(i): ("wind", outlier_inds),
                 "std_" + str(i): ("freqs", std),
                 "mean_" + str(i): ("freqs", mean),
+                "median_" + str(i): ("freqs", median),
             }
         )
 
@@ -302,10 +311,9 @@ def label_all_window_outliers(ind, order, std_n, save_csv=False):
     # clean up
     station_list = []
     for station in os.listdir(in_dir):
-        if station not in ["stacked", "csv", "QC_std1", "QC_std2", "QC_std3"]:
+        if station not in ["csv", "QC_std"]:
             for date in os.listdir(in_dir + station):
-                if "-QC" not in date:
-                    station_list.append([station, date])
+                station_list.append([station, date])
 
     # later add this to first ellipticity run
 
@@ -340,134 +348,159 @@ def label_all_window_outliers(ind, order, std_n, save_csv=False):
         )
 
 
+def find_fundamental_node(in_path="./results/raydec/csv/"):
+    for file in os.listdir(in_path):
+        df = pd.read_csv(in_path + file)
+
+        peaks, _ = find_peaks(df["median"], height=0.7*df["median"].max())
+
+        plt.clf()
+
+        plt.plot(df["median"])
+        plt.axvline(peaks[0], color="grey")
+        plt.savefig("./results/figures/f_0/"+ file.replace(".csv", ".png"))
+
+        
+
+
+
+
+
 def save_to_csv():
     stations = [
-        "24025",
-        "24237",
-        "24321",
-        "24323",
-        "24387",
-        "24446",
-        "24510",
-        "24527",
-        "24614",
-        "24625",
-        "24645",
-        "24702",
-        # "24704",
-        "24708",
-        "24718",
-        "24741",
-        "24928",
-        "24952",
-        "24968",
-        "25009",
-        "25088",
-        "25089",
-        "25097",
-        "25215",
-        "25226",
-        "25229",
-        "25242",
-        "25257",
-        "25354",
-        "25361",
-        "25390",
+        "453024025",
+        "453024237",
+        "453024321",
+        "453024323",
+        "453024387",
+        "453024446",
+        "453024510",
+        "453024527",
+        "453024614",
+        "453024625",
+        "453024645",
+        "453024702",
+        "453024704",
+        "453024708",
+        "453024718",
+        "453024741",
+        "453024928",
+        "453024952",
+        "453024968",
+        "453025009",
+        "453025057",
+        "453025088",
+        "453025089",
+        "453025097",
+        "453025215",
+        "453025226",
+        "453025229",
+        "453025242",
+        "453025257",
+        "453025354",
+        "453025361",
+        "453025390",
     ]
     dates = [
-        "2024-07-03",
-        "2024-06-14",
-        "2024-06-13",
-        "2024-07-04",
-        "2024-07-03",
-        "2024-06-14",
-        "2024-07-04",
-        "2024-07-01",
-        "2024-06-09",
-        "2024-07-04",
-        "2024-07-03",
-        "2024-06-30",
-        # "",
-        "2024-06-09",
-        "2024-06-24",
-        "2024-06-30",
-        "2024-06-30",
-        "2024-06-30",
-        "2024-06-26",
-        "2024-06-15",
-        "2024-06-12",
-        "2024-07-04",
-        "2024-06-26",
-        "2024-07-04",
-        "2024-07-04",
-        "2024-07-01",
-        "2024-07-01",
-        "2024-06-14",
-        "2024-06-14",
-        "2024-06-21",
-        "2024-07-04",
+        ["0011-2024-06-16", "0070-2024-08-22"],
+        ["0012-2024-06-16", "0028-2024-07-01", "0066-2024-08-15"],
+        ["0026-2024-06-30", "0071-2024-08-21"],
+        ["0013-2024-06-17", "0054-2024-08-04"],
+        ["0027-2024-07-03", "0062-2024-08-15"],
+        ["0009-2024-06-14", "0055-2024-08-07"],
+        ["0009-2024-06-13", "0037-2024-07-18", "0054-2024-08-03"],
+        ["0026-2024-07-01", "0034-2024-07-17", "0063-2024-08-14"],
+        ["0004-2024-06-09", "0038-2024-07-20", "0064-2024-08-14"],
+        ["0005-2024-06-09", "0038-2024-07-20"],
+        ["0006-2024-06-11", "0047-2024-07-30"],
+        ["0005-2024-06-11", "0037-2024-07-21", "0067-2024-08-19"],
+        ["0023-2024-06-27", "0068-2024-08-18"],
+        ["0022-2024-06-28", "0039-2024-07-24", "0059-2024-08-12"],
+        ["0007-2024-06-11", "0023-2024-06-27", "0065-2024-08-16"],
+        ["0004-2024-06-09", "0039-2024-07-21"],
+        ["0012-2024-06-17", "0020-2024-06-24"],
+        ["0005-2024-06-09", "0053-2024-08-04"],
+        ["0029-2024-07-04", "0065-2024-08-16"],
+        ["0010-2024-06-16", "0044-2024-07-27", "0052-2024-08-03"],
+        ["0027-2024-07-01", "0040-2024-07-21", "0064-2024-08-13"],
+        ["0009-2024-06-14", "0026-2024-07-01", "0039-2024-07-21"],
+        ["0002-2024-06-06", "0039-2024-07-21", "0068-2024-08-19"],
+        ["0025-2024-06-29", "0068-2024-08-18"],
+        ["0007-2024-06-12", "0022-2024-06-26", "0067-2024-08-17"],
+        ["0017-2024-06-22", "0071-2024-08-22"],
+        ["0006-2024-06-10", "0026-2024-06-29", "0039-2024-07-20"],
+        ["0017-2024-06-21", "0027-2024-06-30", "0040-2024-07-20", "0071-2024-08-19"],
+        ["0004-2024-06-09", "0018-2024-06-23", "0039-2024-07-21"],
+        ["0029-2024-07-04", "0046-2024-07-28"],
+        ["0007-2024-06-11", "0052-2024-08-04"],
+        ["0026-2024-07-01"]
     ]
 
     order = [
-        3,
-        1,
-        3,
-        3,
-        3,
-        1,
-        1,
-        3,
-        3,
-        1,
-        3,
-        1,
-        # None,
-        3,
-        3,
-        3,
-        3,
-        1,
-        3,
-        3,
-        3,
-        3,
-        3,
-        3,
-        3,
-        3,
-        1,
-        1,
-        1,
-        3,
-        3,
+        [3, 3],
+        [1, 3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 1],
+        [3, 3, 3],
+        [3, 3, 3],
+        [3, 3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3, 3],
+        [3, 3],
+        [3, 3, 3],
+        [3, 3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3],
+        [3, 3, 3],
+        [3, 3, 3],
+        [3, 3, 3],
+        [3, 3, 3],
+        [3, 3],
+        [3, 3, 3],
+        [3, 3],
+        [3, 3, 3],
+        [3, 3, 3, 3],
+        [3, 3, 3],
+        [3, 3],
+        [3, 3],
+        [3]
     ]
 
-    in_dir = "./results/raydec/QC_std2/"
+    in_dir = "./results/raydec/0-2-dfpar-QC/"
     for i in range(len(stations)):
         print(stations[i])
         for file in os.listdir(in_dir + stations[i]):
-            if dates[i] in file:
-                da_raydec = xr.open_dataarray(in_dir + "/" + stations[i] + "/" + file)
-                # filter out outliers
-                print(da_raydec)
-                da_raydec = da_raydec[:, da_raydec["QC_" + str(order[i] - 1)] == 0]
+            for date_ind in range(len(dates[i])):
+                if dates[i][date_ind] in file:
+                    da_raydec = xr.open_dataarray(in_dir + "/" + stations[i] + "/" + file)
+                    # filter out outliers
+                    da_raydec = da_raydec[:, da_raydec["QC_" + str(order[i][date_ind] - 1)] == 0]
 
-                print(da_raydec.coords)
-                for c in da_raydec.coords:
-                    if c not in [
-                        "freqs",
-                        "wind",
-                        "std_" + str(order[i] - 1),
-                        "mean_" + str(order[i] - 1),
-                    ]:
-                        da_raydec = da_raydec.drop(c)
+                    da_raydec["std"] = da_raydec["std_" + str(order[i][date_ind] - 1)]
+                    da_raydec["mean"] = da_raydec["mean_" + str(order[i][date_ind] - 1)]
+                    da_raydec["median"] = da_raydec["median_" + str(order[i][date_ind] - 1)]
 
-                da_raydec.to_dataframe(name="ellipticity").to_csv(
-                    "./results/best/csv/"
-                    + str(stations[i])
-                    + "_"
-                    + file.replace(".nc", ".csv")
-                )
+                    for c in da_raydec.coords:
+                        if c not in [
+                            "freqs",
+                            "wind",
+                            "std",
+                            "mean",
+                            "median",
+                        ]:
+                            da_raydec = da_raydec.drop(c)
+
+                    da_raydec.to_dataframe(name="ellipticity").to_csv(
+                        "./results/raydec/0-2-dfpar-csv/"
+                        + str(stations[i])
+                        + "_"
+                        + file.replace(".parquet.nc", ".csv")
+                    )
 
 
 def stack_station_windows():
@@ -530,6 +563,6 @@ if __name__ == "__main__":
     # python src/process_data.py $SLURM_ARRAY_TASK_ID
     # sbatch slice_timeseries_job.slurm
 
-    ind = int(sys.argv[1])
+    #ind = int(sys.argv[1])
     # ind = 2
-    stack_station_windows(ind)
+    save_to_csv()

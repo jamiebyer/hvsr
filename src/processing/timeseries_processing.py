@@ -6,11 +6,11 @@ from utils.utils import make_output_folder, create_file_list
 from dateutil import tz
 import sys
 import os
-import pyarrow.parquet as pq
+import pyarrow.parquet as pq 
 
 
 ###### TIMESERIES PROCESSING ######
-
+ 
 # public method
 def convert_miniseed_to_parquet(in_path=r"/home/gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/", out_path=r"./results/timeseries/raw/"):
     """
@@ -178,7 +178,7 @@ def get_time_slice(df):
     df: timeseries df
 
     convert to correct time zone.
-    get slice between hour limits
+    get slice between hour limits  
     """
     # *** can probably make this more efficient... ***
     #df["date"] = df["date"].apply(lambda d: d.datetime)

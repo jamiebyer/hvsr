@@ -5,7 +5,7 @@ import datetime
 import pandas as pd
 import os
 import sys
-from src.utils.utils import is_int, is_date, is_float
+from utils.utils import is_int, is_date, is_float
 
 
 ####### PARSING XML ######
@@ -147,9 +147,56 @@ def get_file_information():
     df.to_csv("./data/file_information.csv")
 
 
+
+def get_station_positions(ind, in_path=r"./data/Whitehorse_ANT/", out_path=r"./results/timeseries/raw/"):
+    """
+    Loop over raw timeseries miniseed files from smart solo geophone.
+    Consolodate 3 components (vert, north, east) into one file.
+    Determine station and date from miniseed and save to corresponding path.
+
+    :param in_path: path of directory containing miniseed files
+    """
+    # Loop over raw miniseed files
+    #make_output_folder(out_path)
+    
+    file_name = os.listdir(in_path)[ind]
+        
+    if ".E." not in file_name:
+        return
+    # read in miniseed
+    stream_east = read(in_path + file_name, format="mseed")
+    stream_north = read(in_path + file_name.replace(".E.", ".N."), format="mseed")
+    stream_vert = read(in_path + file_name.replace(".E.", ".Z."), format="mseed")
+
+    # validate input file
+
+    if not np.all(
+        np.array([len(stream_east), len(stream_north), len(stream_vert)]) == 1
+    ):
+        raise ValueError
+
+    trace_east = stream_east.traces[0]
+    trace_north = stream_north.traces[0]
+    trace_vert = stream_vert.traces[0]
+    print(trace_east.stats)
+
+    # using times from only east component... validate somehow?
+
+    dates = [d.datetime for d in trace_east.times(type="utcdatetime")]
+    # time passed, used in raydec
+    times = trace_east.times()
+    times -= times[0]
+
+    # get station
+    station = trace_east.stats["station"]
+
+
+
+
 if __name__ == "__main__":
     """
     run from terminal
     """
     # ind = int(sys.argv[1])
+    #get_station_positions(2)
     pass
