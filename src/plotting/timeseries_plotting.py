@@ -4,8 +4,8 @@ import numpy as np
 import os
 import plotly.express as px
 import plotly.graph_objects as go
-from src.processing.timeseries_processing import label_spikes
-from src.utils.utils import make_output_folder
+from processing.timeseries_processing import label_spikes
+from utils.utils import make_output_folder
 import xarray as xr
 
 

@@ -1,8 +1,10 @@
 from processing.timeseries_processing import *
 from processing.ellipticity_processing import *
+from processing.data_parsing import *
 
-from plotting.timeseries_processing import *
-from plotting.ellipticity_processing import *
+from plotting.timeseries_plotting import *
+from plotting.ellipticity_plotting import *
+from plotting.map_plotting import *
 
 
 # Looping over all stations
@@ -48,10 +50,5 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    save_to_csv()
-    """
-    std_n = 2
-    for ind in range(900):
-        print(ind)
-        label_all_window_outliers(ind, 3, std_n)
-    """
+    plot_map()
+    #parse_xml()

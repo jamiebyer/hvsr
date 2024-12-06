@@ -119,12 +119,12 @@ def get_timeseries_stats(include_outliers, in_path=r"./results/timeseries/raw/",
 
 # move to main...
 def save_full_timeseries_stats():
-    get_timeseries_stats(include_outliers=False, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", "full_timeseries_cleaned")
-    get_timeseries_stats(include_outliers=True, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", "full_timeseries")
+    get_timeseries_stats(include_outliers=False, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", out_file_name="full_timeseries_cleaned")
+    get_timeseries_stats(include_outliers=True, in_path=r"./results/timeseries/raw/", out_path=r"./results/timeseries/stats/", out_file_name="full_timeseries")
 
 def save_timeseries_slice_stats():
     # hourly for time slice?
-    get_timeseries_stats(include_outliers, in_path=r"./results/timeseries/clipped/", out_path=r"./results/timeseries/stats/", "sliced_timeseries_cleaned")
+    get_timeseries_stats(include_outliers, in_path=r"./results/timeseries/clipped/", out_path=r"./results/timeseries/stats/", out_file_name="sliced_timeseries_cleaned")
 
 
 def label_spikes(ind, std, in_path=r"./results/timeseries/raw/"):

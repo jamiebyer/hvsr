@@ -5,7 +5,7 @@ import datetime
 import pandas as pd
 import os
 import sys
-from src.utils.utils import is_int, is_date, is_float
+from utils.utils import is_int, is_date, is_float
 
 
 ####### PARSING XML ######
@@ -53,7 +53,93 @@ def xml_to_dict(contents, include):
     return results_dict
 
 
-def parse_xml(save=True):
+def parse_xml():
+    #path1 = "./data/FDSN Information/FDSN_Information_453024025_1.xml"
+    #path2 = "./data/FDSN Information/FDSN_Information_453025229_1.xml"
+    path2 = "./data/FDSN_Information.xml"
+
+    with open(path2, "r") as f:
+        file = f.read()
+
+    soup = BeautifulSoup(file, "xml")
+
+
+    #["SerialNumber", "Latitude", "Longitude", "Site"]
+
+
+    results = {}
+    for station in soup.find_all("Station"):
+        site = station.find("Site").find("Name").text
+        if site not in results:
+            results[site] = []
+        location = {
+                "lon": station.find("Longitude").text,
+                "lat": station.find("Latitude").text,
+                "elev": station.find("Elevation").text
+            }
+        if location not in results[site]:
+            results[site].append(location)
+
+    for k, v in results.items():
+        print(k, v)
+        #for c in station.children:
+        #    print(c.name)
+
+
+    # get unit information from Network
+
+    results = []
+    """
+    for d in soup.descendants:
+        #
+        #print(d.find_all("Latitude"))
+        results.append({
+            "site": d.find_all("Site"),
+            "latitude": d.find_all("Latitude"),
+            "longitude": d.find_all("Longitude"),
+            "elevation": d.find_all("Elevation"),
+            "creation_date": d.find_all("CreationDate"),
+            "serial_number": d.find_all("SerialNumber"),
+        })
+        #
+
+        #print(len(list(soup.descendants)))
+        print(len(list(d.find_all("Site"))))
+        print(len(list(d.find_all("Latitude"))))
+        print(len(list(d.find_all("Longitude"))))
+        print(len(list(d.find_all("Elevation"))))
+        print(len(list(d.find_all("CreationDate"))))
+        print(len(list(d.find_all("SerialNumber"))))
+    """
+
+
+    #"""
+    
+    print(len(np.unique(list(soup.find_all("Site")))), len(list(soup.find_all("Site"))))
+    print(len(np.unique(list(soup.find_all("Latitude")))), len(list(soup.find_all("Latitude"))))
+    print(len(np.unique(list(soup.find_all("Longitude")))), len(list(soup.find_all("Longitude"))))
+    print(len(np.unique(list(soup.find_all("Elevation")))), len(list(soup.find_all("Elevation"))))
+    #print(len(np.unique(list(soup.find_all("CreationDate")))), len(list(soup.find_all("CreationDate"))))
+    print(len(np.unique((soup.find_all("SerialNumber")))), len(list(soup.find_all("SerialNumber"))))
+    #"""
+    """
+    print(soup.find_all("Site"))
+    print(soup.find_all("Latitude"))
+    print(soup.find_all("Longitude"))
+    print(soup.find_all("Elevation"))
+    print(soup.find_all("CreationDate"))
+    print(soup.find_all("SerialNumber"))
+
+    """    
+    #print(soup.find_all("Station"))
+
+    
+
+
+    
+
+
+def parse_xml_og(save=True):
     """
     loop over all tags,
     save unique tags as a single value

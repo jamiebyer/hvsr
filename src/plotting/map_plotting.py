@@ -16,6 +16,7 @@ import cartopy.feature as cf
 
 from matplotlib import patheffects
 from math import floor
+import plotly.graph_objects as go
 
 
 def plot_globe():
@@ -120,7 +121,7 @@ def scale_bar(
     # Plot the scalebar label
     t0 = ax.text(
         sbcx,
-        sbcy,
+        sbcy + 1,
         str(length) + " " + units,
         transform=utm,
         horizontalalignment="center",
@@ -132,7 +133,7 @@ def scale_bar(
     # Plot the N arrow
     t1 = ax.text(
         left,
-        sbcy,
+        sbcy + 1,
         "\u25B2\nN",
         transform=utm,
         horizontalalignment="center",
@@ -177,7 +178,7 @@ def get_station_locations():
     return names, lats, lons
 
 
-def plot_map(fig, gs, station=None):
+def plot_station_map(fig, gs, station=None):
     names, lats, lons = get_station_locations()
     # print(np.unique(names).shape, np.unique(names)[:10])
     # print(np.unique(lats).shape, np.unique(lats)[:10])
@@ -265,9 +266,182 @@ def plot_map(fig, gs, station=None):
     return fig
 
 
+
+
+
+def plot_map_og():
+    path = "./data/spreadsheets/station_positions.csv"
+
+
+    #names, lats, lons = get_station_locations_full_xml()
+    #names, lats, lons = get_station_locations_full_csv()
+    # print(np.unique(names).shape, np.unique(names)[:10])
+    # print(np.unique(lats).shape, np.unique(lats)[:10])
+    # print(np.unique(lons).shape, np.unique(lons)[:10])
+
+    # Google image tiling
+    request1 = cimgt.GoogleTiles(style="satellite")
+    request2 = cimgt.GoogleTiles(
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}.jpg"
+    )
+
+    # Map projection
+    proj = ccrs.AlbersEqualArea(
+        central_longitude=-135.076167,
+        central_latitude=60.729549,
+        false_easting=0.0,
+        false_northing=0.0,
+        standard_parallels=(50, 70.0),
+        globe=None,
+    )
+
+    # Create figure and axis (you might want to edit this to focus on station coverage)
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(projection=proj)
+
+    ax.set_extent([-135.3, -134.9, 60.65, 60.81])
+
+    # Add background
+    ax.add_image(request2, 13)
+    ax.add_image(request1, 13, alpha=0.5)
+
+    # Draw gridlines
+    gl1 = ax.gridlines(
+        draw_labels=True,
+        xlocs=np.arange(-136.0, -134.0, 0.1),
+        ylocs=np.arange(60.0, 61.0, 0.1),
+        linestyle=":",
+        color="w",
+        zorder=2,
+    )
+
+    # Turn off labels on certin sides of figure
+    gl1.top_labels = False
+    gl1.right_labels = False
+
+    # Update label fontsize
+    gl1.xlabel_style = {"size": 10}
+    gl1.ylabel_style = {"size": 10}
+
+    df = pd.read_csv(path)
+
+    inds = df["Code"].str.contains("P").values
+    print(inds)
+
+    # for i in range(len(names)):
+    ax.scatter(
+        df["Lon"][inds == False],
+        df["Lat"][inds == False],
+        color="k",
+        marker="^",
+        s=75,
+        transform=ccrs.PlateCarree(),
+        zorder=9,
+        # label=names,
+    )
+
+    ax.scatter(
+        df["Lon"][inds == True],
+        df["Lat"][inds == True],
+        color=(0.75, 0, 0),
+        marker="^",
+        s=75,
+        transform=ccrs.PlateCarree(),
+        zorder=9,
+        # label=names,
+    )
+
+    # Add scalebar
+    scale_bar(ax, proj, 6)
+    plt.show()
+
+    # Save figure
+    # plt.savefig("test_map.png", dpi=300, bbox_inches="tight")
+    return 
+
+
+def plot_map():
+    path = "./data/spreadsheets/station_positions.csv"
+
+    # Google image tiling
+    request1 = cimgt.GoogleTiles(style="satellite")
+    request2 = cimgt.GoogleTiles(
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}.jpg"
+    )
+
+    # Map projection
+    
+
+    # Add background
+    #ax.add_image(request2, 13)
+    #ax.add_image(request1, 13, alpha=0.5)
+
+
+
+
+    df = pd.read_csv(path)
+
+    inds = df["Code"].str.contains("P").values
+
+    
+    fig = go.Figure(go.Scattermap(
+        lat=df["Lat"],
+        lon=df["Lon"],
+        mode='markers',
+        # transform=ccrs.PlateCarree(),
+    ))
+
+    
+
+    fig.update_layout(
+        # projection_type="equirectangular",
+        #lataxis_range=[60.65, 60.81],
+        #lonaxis_range=[-135.3, -134.9],
+        #lataxis_showgrid=True,
+        #lonaxis_showgrid=True,
+
+        #title=dict(text='Nuclear Waste Sites on Campus'),
+        #map_style="open-street-map",
+        autosize=True,
+        hovermode='closest',
+        showlegend=False,
+        map=dict(
+            bearing=0,
+            center=dict(lon=-135.076167, lat=60.729549),
+            pitch=0,
+            zoom=9,
+            style='light'
+        ),
+        map_layers=[
+            {
+                "below": 'traces',
+                "sourcetype": "raster",
+                #"sourceattribution": "United States Geological Survey",
+                "source": [
+                    "https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}.jpg"
+                ]
+            }
+        ]
+    )
+
+    # Google image tiling
+    """
+    request1 = cimgt.GoogleTiles(style="satellite")
+    request2 = cimgt.GoogleTiles(
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}.jpg"
+    )
+    """
+
+    fig.write_image("./results/figures/plotly_map.png")
+    #fig.show()
+    # Save figure
+    # plt.savefig("test_map.png", dpi=300, bbox_inches="tight")
+
+
+
 if __name__ == "__main__":
     """
     run from terminal
     """
 
-    plot_from_xml()
+    plot_map()
