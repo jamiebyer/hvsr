@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import json
 from utils.utils import make_output_folder
 import xarray as xr
+from scipy.signal import find_peaks
 from plotting.map_plotting import plot_map
 
 # RAYDEC PLOT
@@ -133,89 +134,84 @@ def plot_sensitivity_test():
         )
 
 
-def plot_ellipticity():
-    in_path = "./results/raydec/"
-    out_path = "./results/figures/ellipticity/"
-    make_output_folder(out_path)
-    for station in os.listdir(in_path):
-        make_output_folder(out_path + str(station) + "/")
-        for date in os.listdir(in_path + "/" + station):
+def plot_ellipticity(station, date, in_path="./results/raydec/", out_path="./results/figures/ellipticity/"):
+    da_raydec = xr.open_dataarray(in_path + station + "/" + date + ".nc")
+    
+    da_raydec = da_raydec.dropna(dim="freqs")
 
-            # date = date.removesuffix(".nc").rsplit("-")[1]
-            date = date.removesuffix(".nc")
-            file_name = str(station) + "/" + str(date)
-            path_raydec = "./results/raydec/" + file_name + ".nc"
+    da_raydec["median"] = da_raydec.median(dim="wind")
 
-            da_raydec = xr.open_dataarray(path_raydec)
-            da_raydec = da_raydec.dropna(dim="freqs")
-            # mean = da_raydec.mean(dim="wind")
-
-            raydec_fig = px.line(
-                da_raydec,
-                color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
-                log_x=True,
-            )
-            raydec_fig.write_image(
-                "./results/figures/ellipticity/" + station + "/" + date + ".png"
-            )
+    raydec_fig = px.line(
+        da_raydec,
+        color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
+        log_x=True,
+    )
+    raydec_fig.update_layout(title="453024237_0012-2024-06-16")
+    make_output_folder(out_path + str(station) + "/")
+    raydec_fig.write_image(
+        out_path + station + "/" + date + ".png"
+    )
 
 
 def plot_ellipticity_outliers():
-    in_path = "./results/raydec/QC_std3/"
-    out_path = "./results/figures/ellipticity/QC_3/"
+    in_path = "./results/raydec/QC/"
+    out_path = "./results/figures/ellipticity/"
     make_output_folder(out_path)
-    for station in os.listdir(in_path)[30:35]:
+    for station in os.listdir(in_path):
         print(station)
         make_output_folder(out_path + str(station) + "/")
         for date in os.listdir(in_path + station):
-            da_ellipticity = xr.open_dataarray(in_path + station + "/" + date)
+            try:
+                da_ellipticity = xr.open_dataarray(in_path + station + "/" + date)
 
-            plt.close()
+                plt.close()
 
-            fig, axs = plt.subplots(figsize=(20, 14), nrows=2, ncols=2)
+                fig, axs = plt.subplots(figsize=(20, 14), nrows=2, ncols=2)
 
-            da_ellipticity.plot.line(
-                x="freqs",
-                ax=axs[0, 0],
-                color=(0.1, 0.1, 0.1, 0.1),
-                xscale="log",
-                add_legend=False,
-            )
-
-            if np.any(da_ellipticity["QC_0"] == False):
-                da_ellipticity[:, da_ellipticity["QC_0"] == False].plot.line(
+                da_ellipticity.plot.line(
                     x="freqs",
-                    ax=axs[1, 0],
-                    color=(0.1, 0.1, 0.1, 0.1),
-                    xscale="log",
-                    add_legend=False,
-                )
-            axs[1, 0].set_title(np.sum(da_ellipticity["QC_0"].values))
-
-            if np.any(da_ellipticity["QC_1"] == False):
-                da_ellipticity[:, da_ellipticity["QC_1"] == False].plot.line(
-                    x="freqs",
-                    ax=axs[0, 1],
-                    color=(0.1, 0.1, 0.1, 0.1),
-                    xscale="log",
-                    add_legend=False,
-                )
-            axs[0, 1].set_title(np.sum(da_ellipticity["QC_1"].values))
-
-            if np.any(da_ellipticity["QC_2"] == False):
-                da_ellipticity[:, da_ellipticity["QC_2"] == False].plot.line(
-                    x="freqs",
-                    ax=axs[1, 1],
+                    ax=axs[0, 0],
                     color=(0.1, 0.1, 0.1, 0.1),
                     xscale="log",
                     add_legend=False,
                 )
 
-            axs[1, 1].set_title(np.sum(da_ellipticity["QC_2"].values))
+                if np.any(da_ellipticity["QC_0"] == False):
+                    da_ellipticity[:, da_ellipticity["QC_0"] == False].plot.line(
+                        x="freqs",
+                        ax=axs[1, 0],
+                        color=(0.1, 0.1, 0.1, 0.1),
+                        xscale="log",
+                        add_legend=False,
+                    )
+                axs[1, 0].set_title(np.sum(da_ellipticity["QC_0"].values))
 
-            plt.tight_layout()
+                if np.any(da_ellipticity["QC_1"] == False):
+                    da_ellipticity[:, da_ellipticity["QC_1"] == False].plot.line(
+                        x="freqs",
+                        ax=axs[0, 1],
+                        color=(0.1, 0.1, 0.1, 0.1),
+                        xscale="log",
+                        add_legend=False,
+                    )
+                axs[0, 1].set_title(np.sum(da_ellipticity["QC_1"].values))
 
-            plt.savefig(out_path + station + "/" + date.replace(".nc", ".png"))
+                if np.any(da_ellipticity["QC_2"] == False):
+                    da_ellipticity[:, da_ellipticity["QC_2"] == False].plot.line(
+                        x="freqs",
+                        ax=axs[1, 1],
+                        color=(0.1, 0.1, 0.1, 0.1),
+                        xscale="log",
+                        add_legend=False,
+                    )
+
+                axs[1, 1].set_title(np.sum(da_ellipticity["QC_2"].values))
+
+                plt.tight_layout()
+
+                plt.savefig(out_path + station + "/" + date.replace(".nc", ".png"))
+            except AttributeError:
+                continue
 
 
 def plot_best_ellipticity():
@@ -349,6 +345,179 @@ def plot_best_ellipticity():
                 plt.tight_layout()
 
                 plt.savefig(out_path + station + "_" + date.replace(".nc", ".png"))
+
+
+def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results/figures/0-2-dfpar/"):
+    stations = [
+        "453024025",
+        "453024237",
+        "453024321",
+        "453024323",
+        "453024387",
+        "453024446",
+        "453024510",
+        "453024527",
+        "453024614",
+        "453024625",
+        "453024645",
+        "453024702",
+        "453024704",
+        "453024708",
+        "453024718",
+        "453024741",
+        "453024928",
+        "453024952",
+        "453024968",
+        "453025009",
+        "453025057",
+        "453025088",
+        "453025089",
+        "453025097",
+        "453025215",
+        "453025226",
+        "453025229",
+        "453025242",
+        "453025257",
+        "453025354",
+        "453025361",
+        "453025390",
+    ]
+    dates = [
+        ["0011-2024-06-16", "0070-2024-08-22"],
+        ["0012-2024-06-16", "0028-2024-07-01", "0066-2024-08-15"],
+        ["0026-2024-06-30", "0071-2024-08-21"],
+        ["0013-2024-06-17", "0054-2024-08-04"],
+        ["0027-2024-07-03", "0062-2024-08-15"],
+        ["0009-2024-06-14", "0055-2024-08-07"],
+        ["0009-2024-06-13", "0037-2024-07-18", "0054-2024-08-03"],
+        ["0026-2024-07-01", "0034-2024-07-17", "0063-2024-08-14"],
+        ["0004-2024-06-09", "0038-2024-07-20", "0064-2024-08-14"],
+        ["0005-2024-06-09", "0038-2024-07-20"],
+        ["0006-2024-06-11", "0047-2024-07-30"],
+        ["0005-2024-06-11", "0037-2024-07-21", "0067-2024-08-19"],
+        ["0023-2024-06-27", "0068-2024-08-18"],
+        ["0022-2024-06-28", "0039-2024-07-24", "0059-2024-08-12"],
+        ["0007-2024-06-11", "0023-2024-06-27", "0065-2024-08-16"],
+        #["0004-2024-06-09", "0039-2024-07-21"],
+        ["0039-2024-07-21"],
+        ["0012-2024-06-17", "0020-2024-06-24"],
+        ["0005-2024-06-09", "0053-2024-08-04"],
+        ["0029-2024-07-04", "0065-2024-08-16"],
+        ["0010-2024-06-16", "0044-2024-07-27", "0052-2024-08-03"],
+        #["0027-2024-07-01", "0040-2024-07-21", "0064-2024-08-13"],
+        ["0027-2024-07-01", "0064-2024-08-13"],
+        ["0009-2024-06-14", "0026-2024-07-01", "0039-2024-07-21"],
+        ["0002-2024-06-06", "0039-2024-07-21", "0068-2024-08-19"],
+        ["0025-2024-06-29", "0068-2024-08-18"],
+        ["0007-2024-06-12", "0022-2024-06-26", "0067-2024-08-17"],
+        ["0017-2024-06-22", "0071-2024-08-22"],
+        ["0006-2024-06-10", "0026-2024-06-29", "0039-2024-07-20"],
+        ["0017-2024-06-21", "0027-2024-06-30", "0040-2024-07-20", "0071-2024-08-19"],
+        ["0004-2024-06-09", "0018-2024-06-23", "0039-2024-07-21"],
+        ["0029-2024-07-04", "0046-2024-07-28"],
+        ["0007-2024-06-11", "0052-2024-08-04"],
+        ["0026-2024-07-01"]
+    ]
+    '''
+    peaks_dict = {
+        "453024025" = {
+
+        },
+        "453024321" = {
+            
+        },
+        "453024323" = {
+            
+        },
+        "453024510" = {
+            
+        },
+        "453024614" = {
+            
+        },
+        "453024645" = {
+            
+        },
+        "453024704" = {
+            
+        },
+        "453024708" = {
+            
+        },
+        "453024741" = {
+            
+        },
+        "453025088" = {
+            
+        },
+        "453025097",
+    }
+    '''
+    peaks = [
+        [3, 6],
+        [0, 0, 0],
+        [6, 3],
+        [10, 11],
+        [0, 0],
+        [0, 0],
+        [1, 1, 1],
+        [0, 0, 0],
+        [0, 0, 1],
+        [0, 0],
+        [0, 2],
+        [0, 0, 0],
+        [8, 0], # didn't identify peak
+        [4, 2, 0],
+        [0, 0, 0],
+        #[0, 0],
+        [1],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0, 0],        
+        #[0, 0, 0],
+        [0, 0],
+        [2, 8, 11],
+        [0, 0, 0],
+        [3, 0],
+        [0, 0, 0],
+        [0, 0],
+        [0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0],
+        [0, 0],
+        [0, 0],
+        [0]
+    ]
+    
+    for s_ind in range(len(stations)):
+        for d_ind in range(len(dates[s_ind])):
+            station = stations[s_ind]
+            date = dates[s_ind][d_ind]
+            peak = peaks[s_ind][d_ind]
+            file_name = station + "_" + date + ".csv"
+            df = pd.read_csv(in_path + file_name)
+
+            plt.clf()
+
+            for w in np.unique(df["wind"]):
+                plt.plot(df["freqs"][df["wind"]==w], df["ellipticity"][df["wind"]==w], color=(0.8, 0.8, 0.8, 0.2))
+            
+            all_peaks, _ = find_peaks(df["median"][df["wind"]==w], height=0.5*df["median"][df["wind"]==w].max())
+            
+            plt.plot(df["freqs"][df["wind"]==w], df["median"][df["wind"]==w])
+            
+
+            #plt.scatter(df["freqs"][df["wind"]==w].values[all_peaks], df["median"][df["wind"]==w].values[all_peaks], color="black")
+
+            [plt.axvline(df["freqs"][df["wind"]==w].values[p], color="black", linestyle="dashed") for p in all_peaks]
+            plt.axvline(df["freqs"][df["wind"]==w].values[all_peaks[peak]], color="red", linestyle="dashed")
+            
+            plt.title(file_name.replace(".csv", ""))
+            plt.xscale("log")
+
+            plt.savefig(out_path + file_name.replace(".csv", ".png"))
+    
 
 
 # STACKING PLOT

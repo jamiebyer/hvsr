@@ -72,8 +72,8 @@ def plot_timeseries_app(station, date, max_amplitude):
     return timeseries_fig
 
 
-def plot_timeseries(station, date):
-    dir_in = "./results/timeseries/" + str(station) + "/" + date
+def plot_timeseries(station, date, in_path="./results/timeseries/"):
+    dir_in = in_path + str(station) + "/" + date
     df_timeseries = pd.read_parquet(dir_in, engine="pyarrow")
 
     df_timeseries.index = pd.to_datetime(

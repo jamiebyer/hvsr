@@ -25,6 +25,8 @@
 2. Get initial stats for full timeseries and save to csv.
     - `get_timeseries_stats(include_outliers, in_path, out_path)`
     - save locally
+    - `rsync -a remote_user@remote_host_or_ip:/opt/media/ /opt/media/`
+
 
 3. Remove points with amplitude >= 3 standard deviation from mean for the current day. Get stats for the new timeseries. Select the night hours () from the timeseries, get new stats. Save this "processed" timeseries as parquet, and save stats to df.
     - `get_clean_timeseries_slice(in_path, out_path)`
