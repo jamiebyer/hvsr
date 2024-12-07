@@ -73,67 +73,16 @@ def parse_xml():
         if site not in results:
             results[site] = []
         location = {
-                "lon": station.find("Longitude").text,
-                "lat": station.find("Latitude").text,
-                "elev": station.find("Elevation").text
+                "lon": float(station.find("Longitude").text),
+                "lat": float(station.find("Latitude").text),
+                "elev": float(station.find("Elevation").text)
             }
         if location not in results[site]:
             results[site].append(location)
-
-    for k, v in results.items():
-        print(k, v)
-        #for c in station.children:
-        #    print(c.name)
-
-
-    # get unit information from Network
-
-    results = []
-    """
-    for d in soup.descendants:
-        #
-        #print(d.find_all("Latitude"))
-        results.append({
-            "site": d.find_all("Site"),
-            "latitude": d.find_all("Latitude"),
-            "longitude": d.find_all("Longitude"),
-            "elevation": d.find_all("Elevation"),
-            "creation_date": d.find_all("CreationDate"),
-            "serial_number": d.find_all("SerialNumber"),
-        })
-        #
-
-        #print(len(list(soup.descendants)))
-        print(len(list(d.find_all("Site"))))
-        print(len(list(d.find_all("Latitude"))))
-        print(len(list(d.find_all("Longitude"))))
-        print(len(list(d.find_all("Elevation"))))
-        print(len(list(d.find_all("CreationDate"))))
-        print(len(list(d.find_all("SerialNumber"))))
-    """
-
-
-    #"""
     
-    print(len(np.unique(list(soup.find_all("Site")))), len(list(soup.find_all("Site"))))
-    print(len(np.unique(list(soup.find_all("Latitude")))), len(list(soup.find_all("Latitude"))))
-    print(len(np.unique(list(soup.find_all("Longitude")))), len(list(soup.find_all("Longitude"))))
-    print(len(np.unique(list(soup.find_all("Elevation")))), len(list(soup.find_all("Elevation"))))
-    #print(len(np.unique(list(soup.find_all("CreationDate")))), len(list(soup.find_all("CreationDate"))))
-    print(len(np.unique((soup.find_all("SerialNumber")))), len(list(soup.find_all("SerialNumber"))))
-    #"""
-    """
-    print(soup.find_all("Site"))
-    print(soup.find_all("Latitude"))
-    print(soup.find_all("Longitude"))
-    print(soup.find_all("Elevation"))
-    print(soup.find_all("CreationDate"))
-    print(soup.find_all("SerialNumber"))
+    return results
 
-    """    
-    #print(soup.find_all("Station"))
 
-    
 
 
     
@@ -278,11 +227,35 @@ def get_station_positions(ind, in_path=r"./data/Whitehorse_ANT/", out_path=r"./r
 
 
 
+def split_temperature_csv():
+    path = "./data/other_data/Temperature_20240828163333.csv"
+    station_rows = {}
+    header, station = None, None
+    # determine which rows to read for each station
+    with open(path, "r") as file:
+        for line_number, line in enumerate(file.readlines()):
+            if line.startswith("#"):
+                if line.startswith("#Format: "):
+                    header = line.removeprefix("#Format: ")
+                elif header is not None and line.startswith("#4530"):
+                    if station is not None and station in station_rows:
+                        station_rows[station][-1].append(line_number)                        
 
-if __name__ == "__main__":
-    """
-    run from terminal
-    """
-    # ind = int(sys.argv[1])
-    #get_station_positions(2)
-    pass
+                    station = line.removeprefix("#4530").removesuffix("\n")
+                    if station not in station_rows:
+                        station_rows[station] = []
+                    
+                    station_rows[station].append([int(line_number)+1])
+        
+    
+    file_length = int(line_number)
+    station_rows[station][-1].append(file_length)
+    for station, rows in station_rows.items():
+        inds = []
+        print(rows)
+        for r in rows:
+            inds += list(np.arange(r[0], r[1]+1))
+        df = pd.read_csv(path, names=header.split(", "), skiprows=list(set(np.arange(file_length)) - set(inds)))
+        print(df)
+        df.to_csv("./data/temperature/" + station + ".csv")
+

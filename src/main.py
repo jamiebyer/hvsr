@@ -1,11 +1,14 @@
 import sys
-from processing.timeseries_processing2 import label_spikes2, get_time_slice2
+from processing.timeseries_processing import label_spikes, get_time_slice
 from processing.ellipticity_processing import *
 from processing.data_parsing import *
 
 from plotting.timeseries_plotting import *
 from plotting.ellipticity_plotting import *
 from plotting.map_plotting import *
+
+import os
+from app.app import app
 
 
 # Looping over all stations
@@ -32,7 +35,12 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    ind = int(sys.argv[1])
+    #ind = int(sys.argv[1])
+    #import pandas as pd
+    #df = pd.read_csv("./data/other_data/Temperature_20240828163333.csv")
+    #print(df)
+    app.run_server(debug=True, host="0.0.0.0", port=8050)
+    #split_temperature_csv()
 
     """
     df, station, date = create_file_list(ind, "./results/timeseries/raw/", ".parquet")
@@ -43,10 +51,11 @@ if __name__ == "__main__":
     df.to_parquet("./results/timeseries/raw/" + station + "/" + date)
     """
     # plot timeseries
+    """
     in_path="./results/timeseries/clipped/"
     station, date = create_file_list(ind, in_path, ".parquet")
     plot_timeseries(station, date)
-
+    """
     #process_station_ellipticity(ind)
 
     # plot ellipticity

@@ -4,21 +4,27 @@ import numpy as np
 import os
 import plotly.express as px
 import plotly.graph_objects as go
-
+from processing.data_parsing import parse_xml
 
 ##### APP PLOTTING ######
 
 
 def plot_map():
-    df = pd.read_csv("./data/parsed_xml.csv")
-    # path = "./figures/station_map_locations.html"
+    stations = parse_xml()
+    
+    sites, lats, lons = [], [], []
+    for s, c in stations.items():
+        for coords in c:
+            sites += [s]
+            lats += [coords["lat"]]
+            lons += [coords["lon"]]
 
     fig = go.Figure(
         go.Scattermap(
-            lat=df["Latitude"],
-            lon=df["Longitude"],
+            lat=lats,
+            lon=lons,
             mode="markers",
-            text=df["Site"],
+            text=sites,
         )
     )
     fig.update_layout(
@@ -26,9 +32,9 @@ def plot_map():
         margin=dict(l=20, r=20, t=20, b=20),
         showlegend=False,
     )
-    fig.add_trace(
-        go.Scattermap(lat=[None], lon=[None], mode="markers", marker_color="red")
-    )
+    #fig.add_trace(
+    #    go.Scattermap(stations[station]["lat"], stations[station]["lon"], mode="markers", marker_color="red")
+    #)
     # fig.write_html(path)
     return fig
 
@@ -36,36 +42,18 @@ def plot_map():
 # TEMPERATURE PLOT
 
 
-def plot_temperature():
+def plot_temperature(station):
     # *** parse time zone info ***
-    df = pd.read_csv("./data/weatherstats_whitehorse_hourly.csv")
+    df = pd.read_csv("./data/temperature/" + station + ".csv")
+    print(df)
 
     df["date_time_local"] = pd.to_datetime(
         df["date_time_local"], format="%Y-%m-%d %H:%M:%S MST"
     )
-    df["date_time_local"] = (
-        df["date_time_local"].dt.tz_localize("UTC").dt.tz_convert("US/Mountain")
-    )
-    """
-    inds = (
-        (df["date_time_local"].dt.year == date.year).values
-        & (df["date_time_local"].dt.month == date.month).values
-        & (df["date_time_local"].dt.day == date.day).values
-    )"""
-    # inds = df["date_time_local"]
-
-    min_temp = df["min_air_temp_pst1hr"]
-    max_temp = df["max_air_temp_pst1hr"]
-    avg_temp = (min_temp + max_temp) / 2
-    df["avg_temp"] = avg_temp
+    df["date_time_local"] = df["date_time_local"].dt.tz_localize("UTC").dt.tz_convert("US/Mountain")
 
     fig = px.line(df, "date_time_local", "avg_temp")
+
     return fig
 
 
-if __name__ == "__main__":
-    """
-    run from terminal
-    """
-
-    plot_from_xml()

@@ -126,9 +126,10 @@ def save_all_timeseries_plot():
             timeseries_fig.write_image(output_dir + "/" + station + "/" + file + ".png")
 
 
-if __name__ == "__main__":
-    """
-    run from terminal
-    """
 
-    plot_from_xml()
+def plot_raydec():
+    return None
+
+
+def plot_temperature():
+    return None

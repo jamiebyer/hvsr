@@ -1,21 +1,23 @@
 from os import environ
-
+import csv
 import dash
 from dash import no_update
 from dash.dependencies import Input, Output, State
 from flask import Flask
 import plotly.graph_objects as go
 import os
-from src.app.layout import layout
+from app.layout import layout
 import pandas as pd
 import json
 import plotly.graph_objects as go
 from datetime import datetime
 
-from plotting import plot_timeseries, plot_raydec, plot_temperature
-from src.processing.ellipticity_processing import write_raydec_df, stack_station_windows
-from src.utils.utils import make_output_folder
+from plotting.timeseries_plotting import plot_timeseries, plot_raydec, plot_temperature
+from processing.ellipticity_processing import write_raydec_df, stack_station_windows
+from utils.utils import make_output_folder
 import xarray as xr
+
+import matplotlib.pyplot as plt
 
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
@@ -41,7 +43,7 @@ def set_station_value(click_data):
         return None
     station = click_data["points"][0]["text"]
     return station
-
+"""
 
 @app.callback(
     Output(component_id="timeseries_dates", component_property="options"),
@@ -50,9 +52,9 @@ def set_station_value(click_data):
     prevent_initial_call=True,
 )
 def update_date_options(station):
-    """
-    update options in date dropdowns based on
-    """
+    
+    #update options in date dropdowns based on
+    
     if station is None:
         return [], []
 
@@ -64,7 +66,7 @@ def update_date_options(station):
 
     return read_timeseries_dates, read_raydec_dates
 
-
+"""
 @app.callback(
     Output(component_id="map", component_property="figure"),
     Input(component_id="map", component_property="clickData"),
@@ -81,7 +83,7 @@ def update_map_figure(click_data, map_fig):
 
     return map_fig
 
-
+"""
 @app.callback(
     Output(component_id="timeseries_div", component_property="style"),
     Output(component_id="filter_div", component_property="style"),
@@ -104,28 +106,40 @@ def update_display_plots(display_plots):
         for p in plots
     ]
 
-
+"""
 # TIMESERIES PLOT
 
 
 @app.callback(
-    Output(component_id="timeseries_figure", component_property="figure"),
+    Output(component_id="figure", component_property="figure"),
     Input(component_id="station", component_property="data"),
-    Input(component_id="timeseries_dates", component_property="value"),
-    Input(component_id="max_amplitude", component_property="value"),
+    Input(component_id="dates", component_property="value"),
+    Input(component_id="display_plots", component_property="value"),
 )
-def update_timeseries_figure(station, date, max_amplitude):
+def update_timeseries_figure(station, date, display_plots):
     if station is None or date is None:
         return go.Figure()
 
-    timeseries_fig = plot_timeseries(station, date, max_amplitude)
+    
+    path = "./data/temperature/"
+    df = pd.read_csv(path + station)
+    print(df)
+    plt.plot(df)
+    plt.show()
 
-    return timeseries_fig
+    fig = go.Figure()
+    for p in display_plots:
+        if "timeseries" in display_plots:
+            pass
+        elif "temperature" in display_plots:
+            temp_fig = plot_temperature
+
+    return fig
 
 
 # TEMPERATURE PLOT
 
-
+"""
 @app.callback(
     Output(component_id="temperature_figure", component_property="figure"),
     Input(component_id="timeseries_figure", component_property="figure"),
@@ -142,9 +156,9 @@ def update_temperature_figure(timeseries_figure):
 
     return temperature_fig
 
-
+"""
 # RAYDEC PLOT
-
+"""
 
 @app.callback(
     Output(component_id="raydec_figure", component_property="figure"),
@@ -169,7 +183,8 @@ def update_raydec_figure(
 
     return raydec_fig
 
-
+"""
+"""
 def write_json(raydec_info, filename="./results/raydec/raydec_info.json"):
     with open(filename, "r+") as file:
         # First we load existing data into a dict.
@@ -186,7 +201,8 @@ def write_json(raydec_info, filename="./results/raydec/raydec_info.json"):
         file.seek(0)
         json.dump(file_data, file, indent=4)
 
-
+"""
+"""
 @app.callback(
     Output(component_id="raydec_dates", component_property="value"),
     State(component_id="station", component_property="data"),
@@ -215,12 +231,12 @@ def save_raydec(station, date, f_min, f_max, f_steps, cycles, df_par, _):
 
     return date
 
-
+"""
 ###### STACKING ######
 
 # update date limits from file names
 
-
+"""
 # grey out box with check
 @app.callback(
     Output(component_id="len_wind_filter", component_property="disabled"),
@@ -259,8 +275,8 @@ def update_output(
         else:
             output.append(True)
     return output
-
-
+"""
+"""
 @app.callback(
     Output(component_id="stacking_figure", component_property="figure"),
     State(component_id="station", component_property="data"),
@@ -307,7 +323,7 @@ def stack_station(
     stack_station_windows(station, [start_date, end_date], raydec_properties)
 
     return go.Figure
-
+"""
 
 if __name__ == "__main__":
     app.run_server(debug=True, host="0.0.0.0", port=8050)
