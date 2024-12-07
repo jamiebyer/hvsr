@@ -10,6 +10,7 @@ from app.layout import layout
 import pandas as pd
 import json
 import plotly.graph_objects as go
+import plotly.express as px
 from datetime import datetime
 
 from plotting.timeseries_plotting import plot_timeseries, plot_raydec, plot_temperature
@@ -67,6 +68,7 @@ def update_date_options(station):
     return read_timeseries_dates, read_raydec_dates
 
 """
+"""
 @app.callback(
     Output(component_id="map", component_property="figure"),
     Input(component_id="map", component_property="clickData"),
@@ -83,6 +85,7 @@ def update_map_figure(click_data, map_fig):
 
     return map_fig
 
+"""
 """
 @app.callback(
     Output(component_id="timeseries_div", component_property="style"),
@@ -120,19 +123,21 @@ def update_timeseries_figure(station, date, display_plots):
     if station is None or date is None:
         return go.Figure()
 
+    # sort by deployments
     
-    path = "./data/temperature/"
-    df = pd.read_csv(path + station)
-    print(df)
-    plt.plot(df)
-    plt.show()
 
-    fig = go.Figure()
+
+    path = "./data/temperature/"
+    # plot average from all stations in the background.
+    df = pd.read_csv(path + station + ".csv", names=["millisecond_since_epoch", "yyyy-MM-ddThh:mm:ss", "data_value"], skiprows=[0])
+
+    fig = go.Figure(go.Scatter(x=df["yyyy-MM-ddThh:mm:ss"], y=df["data_value"]))
     for p in display_plots:
         if "timeseries" in display_plots:
             pass
         elif "temperature" in display_plots:
-            temp_fig = plot_temperature
+            #temp_fig = plot_temperature
+            pass
 
     return fig
 

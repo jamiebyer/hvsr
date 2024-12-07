@@ -12,6 +12,8 @@
 
 (info from xml- sampling rate, etc.)
 
+- get locations, stations, serials
+
 
 **Figures**:
 - Map of stations and locations
@@ -21,6 +23,12 @@
 1. Get timeseries miniseed files from GLADOS. Convert each station and each day to parquet. (compare sizes)
     - `convert_miniseed_to_parquet(in_path, out_path)`
     - slurm to parallelize
+
+    - condense timeseries miniseed, combine traces into one file. cut over first few hours and last few hours
+    - remove spikes and save distribution
+    - slice miniseed and save
+    - find the quietest section of night
+        - plot full timeseries and processed section
 
 2. Get initial stats for full timeseries and save to csv.
     - `get_timeseries_stats(include_outliers, in_path, out_path)`
@@ -46,6 +54,8 @@
 
 ---
 ## Ellipticity processing
+- sensitivity test
+
 1. run raydec on processed timeseries
     - emphasizes Rayleigh waves and filters body waves(?), then uses HVSR to calculate ellipticity of the Rayleigh waves.
     - converted to Python from: https://github.com/ManuelHobiger/RayDec
