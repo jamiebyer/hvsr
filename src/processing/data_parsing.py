@@ -53,13 +53,23 @@ def xml_to_dict(contents, include):
     return results_dict
 
 
-def parse_xml(save=True):
+def parse_xml():
     """
-    loop over all tags,
-    save unique tags as a single value
-    recuresively loop over tags with multiple values and add to dictionary
-    figure out which values change between stations
-    save stations to dataframe -> csv
+    Loop over station tags.
+        - Save Site/Name
+        - From each channel, save DataAvalibility, Latitude, Longitude, Elevation
+        and Description/SerialNumber
+        - Confirm the information is the same for all three channels
+
+
+    for item in station:
+        # contains: Latitude, Longitude, Elevation, Site, CreationDate, TotalNumberChannels, SelectedNumberChannels
+        # Channels: EPZ, EPN, EPE
+        for i in item:
+            # contains: DataAvalibility, Latitude, Longitude, Elevation, Depth, Azimuth, Dip, Type, SampleRate, ClockDrift,
+            # Sensor information
+            for j in i:
+                # contains: Description, Manufacturer, SerialNumber, InstrumentSensitivity, Stage
     """
     path = "./data/FDSN_Information.xml"
 
@@ -68,52 +78,41 @@ def parse_xml(save=True):
 
     soup = BeautifulSoup(file, "xml")
 
-    # get unit information from Network
+    # ["SerialNumber", "Latitude", "Longitude", "Site"]
 
-    results = {}
-    for d in soup.descendants:
-        if hasattr(d, "name") and d.name not in ["FDSNStationXML", "Network"]:
-            if d.name not in results:
-                results[d.name] = []
-            results[d.name].append(d.text)
-
-    all_stations = {}
-    for k, v in results.items():
-        unique_vals = np.unique(v)
-        if len(unique_vals) == 1:
-            all_stations[k] = unique_vals[0]
-
-    remaining_vars = set(results.keys()) - set(all_stations.keys())
-    remaining_vars.remove("Site")
-    remaining_vars.remove("Channel")
-
-    stations = {}
-    for s in soup.find_all("Station"):
-        if s is not None and s.find("Site") is not None:
-            site = s.find("Site").find("Name").text
-            # maybe save serial number from channels
-            # channels = s.find_all("Channel")
-            # channels = [xml_to_dict(c.contents, remaining_vars) for c in channels]
-
-            stations[site] = xml_to_dict(s.contents, remaining_vars)
-            # stations[site]["Channels"] = channels
-
-    # convert dictionary to dataframe and save stations as csv
-    stations_dict = {
-        "Site": [],
-        "Latitude": [],
-        "Longitude": [],
-        "Elevation": [],
-        "CreationDate": [],
+    results = {
+        "site": [],
+        "start_date": [],
+        "end_date": [],
+        "lat": [],
+        "lon": [],
+        "elev": [],
+        "serial": [],
     }
+    for station in soup.find_all("Station"):
+        site = station.find("Site").find("Name").text
+        start_dates = [d["start"] for d in station.find_all("Extent")]
+        end_dates = [d["end"] for d in station.find_all("Extent")]
+        lats = [l.text for l in station.find_all("Latitude")]
+        lons = [l.text for l in station.find_all("Longitude")]
+        elevs = [e.text for e in station.find_all("Elevation")]
+        serials = [s.text for s in station.find_all("SerialNumber")]
 
-    for site, attrib in stations.items():
-        stations_dict["Site"].append(site)
-        for key, value in attrib.items():
-            stations_dict[key].append(value)
+        for prop in [start_dates, end_dates, lats, lons, elevs, serials]:
+            if len(np.unique(prop, axis=0)) != 1:
+                raise ValueError
 
-    if save:
-        pd.DataFrame(stations_dict).to_csv("./data/parsed_xml.csv")
+        results["site"].append(site)
+        results["start_date"].append(start_dates[0])
+        results["end_date"].append(end_dates[0])
+        results["lat"].append(lats[0])
+        results["lon"].append(lons[0])
+        results["elev"].append(elevs[0])
+        results["serial"].append(serials[0])
+
+    df = pd.DataFrame(results)
+    df.to_csv("./results/xml_info.csv")
+    print(df)
 
 
 ###### GET MAPPING OF STATION AND FILES ######
@@ -147,8 +146,9 @@ def get_file_information():
     df.to_csv("./data/file_information.csv")
 
 
-
-def get_station_positions(ind, in_path=r"./data/Whitehorse_ANT/", out_path=r"./results/timeseries/raw/"):
+def get_station_positions(
+    ind, in_path=r"./data/Whitehorse_ANT/", out_path=r"./results/timeseries/raw/"
+):
     """
     Loop over raw timeseries miniseed files from smart solo geophone.
     Consolodate 3 components (vert, north, east) into one file.
@@ -157,10 +157,10 @@ def get_station_positions(ind, in_path=r"./data/Whitehorse_ANT/", out_path=r"./r
     :param in_path: path of directory containing miniseed files
     """
     # Loop over raw miniseed files
-    #make_output_folder(out_path)
-    
+    # make_output_folder(out_path)
+
     file_name = os.listdir(in_path)[ind]
-        
+
     if ".E." not in file_name:
         return
     # read in miniseed
@@ -191,12 +191,37 @@ def get_station_positions(ind, in_path=r"./data/Whitehorse_ANT/", out_path=r"./r
     station = trace_east.stats["station"]
 
 
+def split_temperature_csv():
+    path = "./data/other_data/Temperature_20240828163333.csv"
+    station_rows = {}
+    header, station = None, None
+    # determine which rows to read for each station
+    with open(path, "r") as file:
+        for line_number, line in enumerate(file.readlines()):
+            if line.startswith("#"):
+                if line.startswith("#Format: "):
+                    header = line.removeprefix("#Format: ")
+                elif header is not None and line.startswith("#4530"):
+                    if station is not None and station in station_rows:
+                        station_rows[station][-1].append(line_number)
 
+                    station = line.removeprefix("#4530").removesuffix("\n")
+                    if station not in station_rows:
+                        station_rows[station] = []
 
-if __name__ == "__main__":
-    """
-    run from terminal
-    """
-    # ind = int(sys.argv[1])
-    #get_station_positions(2)
-    pass
+                    station_rows[station].append([int(line_number) + 1])
+
+    file_length = int(line_number)
+    station_rows[station][-1].append(file_length)
+    for station, rows in station_rows.items():
+        inds = []
+        print(rows)
+        for r in rows:
+            inds += list(np.arange(r[0], r[1] + 1))
+        df = pd.read_csv(
+            path,
+            names=header.split(", "),
+            skiprows=list(set(np.arange(file_length)) - set(inds)),
+        )
+        print(df)
+        df.to_csv("./data/temperature/" + station + ".csv")

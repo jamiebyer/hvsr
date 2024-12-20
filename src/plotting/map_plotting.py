@@ -17,6 +17,7 @@ import cartopy.feature as cf
 from matplotlib import colors
 from matplotlib import patheffects
 from math import floor
+import plotly.graph_objects as go
 from scipy.signal import find_peaks
 
 
@@ -122,7 +123,7 @@ def scale_bar(
     # Plot the scalebar label
     t0 = ax.text(
         sbcx,
-        sbcy,
+        sbcy + 1,
         str(length) + " " + units,
         transform=utm,
         horizontalalignment="center",
@@ -134,7 +135,7 @@ def scale_bar(
     # Plot the N arrow
     t1 = ax.text(
         left,
-        sbcy,
+        sbcy + 1,
         "\u25B2\nN",
         transform=utm,
         horizontalalignment="center",
