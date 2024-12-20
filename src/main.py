@@ -75,7 +75,7 @@ if __name__ == "__main__":
     # plot timeseries
     in_path="./results/timeseries/clipped/"
     station, date = create_file_list(ind, in_path, ".parquet")
-    plot_timeseries(station, date)
+    plot_timeseries(station, date, in_path)
 
     #process_station_ellipticity(ind)
 

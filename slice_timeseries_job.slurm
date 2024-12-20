@@ -6,7 +6,7 @@
 #SBATCH --time=02:00:00
 #SBATCH --mem=5G
 #SBATCH --partition=cpu2019
-#SBATCH --array=0-947
+#SBATCH --array=0-2200
 #SBATCH -o ./report/output.%a.out # STDOUT
 
 ####### Set environment variables ###############
