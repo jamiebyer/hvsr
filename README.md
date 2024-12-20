@@ -1,72 +1,72 @@
 
-# HVSR processing .miniseed data
+# Timeseries -> Ellipticity processing
+
+---
+## TODO
+- Determine deployment schedule
+- Save current clipped timeseries to plots.
+- Save current ellipticity to plots
+- Fix up temperature plot
+
+
 ---
 ## Data
 - geophone sensor specs: https://smartsolo.com/cp-3.html
 - seismic ambient noise collected in Whitehorse, Yukon between June and August 2024
 - sampling frequency: 10 Hz, 0.1 s
 
-
+---
 ## xml processing
-1. Parse xml. Get stations and corresponding coordinate locations.
+1. Parse FDSN_Information.xml to get geophone serial numbers and coordinates.
+2. Determine full deployment schedule information.
+3. Get other information from xml: sampling rate
+4. Map stations and locations
 
-(info from xml- sampling rate, etc.)
-
-- get locations, stations, serials
-
-
-**Figures**:
-- Map of stations and locations
 ---
 
-## Timeseries  processing
-1. Get timeseries miniseed files from GLADOS. Convert each station and each day to parquet. (compare sizes)
-    - `convert_miniseed_to_parquet(in_path, out_path)`
-    - slurm to parallelize
-
-    - condense timeseries miniseed, combine traces into one file. cut over first few hours and last few hours
-    - remove spikes and save distribution
-    - slice miniseed and save
-    - find the quietest section of night
-        - plot full timeseries and processed section
-
-2. Get initial stats for full timeseries and save to csv.
-    - `get_timeseries_stats(include_outliers, in_path, out_path)`
-    - save locally
-    - `rsync -a remote_user@remote_host_or_ip:/opt/media/ /opt/media/`
+## Timeseries processing
+1. Get timeseries miniseed files from GLADOS.
+    - Indicate spikes and distribution (save to csv)
+    - Plot downsampled full timeseries and spikes
+2. Clip night section from timeseries.
+    - Remove points with amplitude >= 3 standard deviation from mean for the current day.
+    - Find the quietest sections of night
+        - This is removing earthquakes and outliers, and selecting times with less anthropogenic noise so we have ambient noise.
+3. Clip times where geophone is moved. (starts and ends are easy, but geophones that are moved mid-deployment?)
+4. Plot clipped miniseed for each timeseries and save.
 
 
-3. Remove points with amplitude >= 3 standard deviation from mean for the current day. Get stats for the new timeseries. Select the night hours () from the timeseries, get new stats. Save this "processed" timeseries as parquet, and save stats to df.
-    - `get_clean_timeseries_slice(in_path, out_path)`
-    - This is removing earthquakes and outliers, and selecting times with less anthropogenic noise so we have ambient noise.
-    - slurm
-    - use `rsync` to save locally 
+- I would rather save to xarray... Try sticking with miniseed at least for initial processing.
 
-4. Get stats for full timeseries with outliers removed and sliced timeseries
-    - label stats first and get "cleaned" stats for the timeseries too.
-    - save locally
-
-
-**Figures**:
-- 
-**Notes **:
-- ends have noise from being taken out, put back in ground
 
 ---
 ## Ellipticity processing
 - sensitivity test
 
-1. run raydec on processed timeseries
-    - emphasizes Rayleigh waves and filters body waves(?), then uses HVSR to calculate ellipticity of the Rayleigh waves.
-    - converted to Python from: https://github.com/ManuelHobiger/RayDec
-2. remove windows >= 3 standard deviation from mean
+1. Run raydec on processed timeseries
+    - Emphasizes Rayleigh waves, then uses HVSR to calculate ellipticity of the Rayleigh waves
+    - Note on difference between HVSR and ellipticity
+2. Remove outliers
+    - remove windows >= 3 standard deviation from mean
     - standard deviation for stack
 
-- slurm script
 
-**Figures**:
-- ellipticity compared with timeseries and station location
+- Plot ellipticity compared with timeseries and station location
 
+### RayDec
+- Converted to Python from: https://github.com/ManuelHobiger/RayDec
+- Parallelize current code
+
+---
+## Transfering files between remote and local
+- `rsync -a remote_user@remote_host_or_ip:/opt/media/ /opt/media/`
+
+
+---
+## Other plotting
+- Temperature
+- Permafrost
+- CMIP models?
 
 ---
 ## Running the code
@@ -82,8 +82,6 @@
 
 
 
-# CMIP6 permafrost
-# temperature
 
 
 

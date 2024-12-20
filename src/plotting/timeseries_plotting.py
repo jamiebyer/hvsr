@@ -12,64 +12,7 @@ import xarray as xr
 # TIMESERIES PLOT
 
 
-def plot_timeseries_app(station, date, max_amplitude):
-    # only do general layout once
-    # any timeseries processing for plot has to also be done before running raydec
-    # *** only read in the csv once ***
 
-    dir_in = "./results/timeseries/" + str(station) + "/" + date
-    df_timeseries = pd.read_parquet(dir_in, engine="pyarrow")
-
-    df_timeseries.index = pd.to_datetime(
-        df_timeseries.index, format="ISO8601"  # format="%Y-%m-%d %H:%M:%S.%f%z"
-    )
-    # df_timeseries.set_index(pd.to_datetime(df_timeseries["dates"], format="mixed"))
-
-    # print(df_timeseries)
-
-    # downsample for plotting
-    # df_timeseries = df_timeseries.resample("5min")
-
-    # should just add to saved df
-    magnitude = np.sqrt(
-        df_timeseries["vert"] ** 2
-        + df_timeseries["north"] ** 2
-        + df_timeseries["east"] ** 2
-    )
-
-    df_timeseries["magnitude"] = magnitude
-
-    # change to just amplitude...?
-    timeseries_fig = px.line(
-        df_timeseries,
-        # x=df_keep.index,
-        y=["magnitude"],
-        # color_discrete_sequence=["rgba(100, 100, 100, 0.1)"],
-        color="spikes",
-    )
-
-    timeseries_fig.update_xaxes(
-        rangeslider_visible=True,
-        rangeselector=dict(
-            buttons=list(
-                [
-                    dict(count=1, label="1h", step="hour", stepmode="backward"),
-                    dict(count=2, label="2h", step="hour", stepmode="backward"),
-                    # dict(count=1, label="YTD", step="year", stepmode="todate"),
-                    dict(count=5, label="5h", step="hour", stepmode="backward"),
-                    # dict(step="all")
-                ]
-            )
-        ),
-    )
-    # """
-    timeseries_fig.update_layout(
-        yaxis_range=[np.min(df_timeseries["vert"]), np.max(df_timeseries["vert"])],
-        # yaxis_range=[-0.3, 0.3],
-        margin=dict(l=20, r=20, t=20, b=20),
-    )
-
-    return timeseries_fig
 
 
 def plot_timeseries(station, date, in_path="./results/timeseries/"):
@@ -126,10 +69,18 @@ def save_all_timeseries_plot():
             timeseries_fig.write_image(output_dir + "/" + station + "/" + file + ".png")
 
 
-
 def plot_raydec():
     return None
 
 
 def plot_temperature():
-    return None
+    path = "./data/temperature/"
+    # plot average from all stations in the background.
+    df = pd.read_csv(
+        path + station + ".csv",
+        names=["millisecond_since_epoch", "yyyy-MM-ddThh:mm:ss", "data_value"],
+        skiprows=[0],
+    )
+    fig = go.Figure(go.Scatter(x=df["yyyy-MM-ddThh:mm:ss"], y=df["data_value"]))
+
+    return fig

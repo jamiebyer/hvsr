@@ -8,13 +8,13 @@ from plotting.ellipticity_plotting import *
 from plotting.map_plotting import *
 
 import os
-from app.app import app
 
 
 # Looping over all stations
 
+
 def create_file_list(ind, in_path, suffix):
-    
+
     file_path = []
     for station in os.listdir(in_path):
         for date in os.listdir(in_path + "/" + station):
@@ -26,7 +26,6 @@ def create_file_list(ind, in_path, suffix):
     station = file_path[ind][0]
     date = file_path[ind][1]
 
-
     return station, date.replace(suffix, "")
 
 
@@ -35,13 +34,15 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    #ind = int(sys.argv[1])
-    #import pandas as pd
-    #df = pd.read_csv("./data/other_data/Temperature_20240828163333.csv")
-    #print(df)
-    app.run_server(debug=True, host="0.0.0.0", port=8050)
-    #split_temperature_csv()
+    # ind = int(sys.argv[1])
 
+    # Launch app
+    from app.app import app
+
+    app.run_server(debug=True, host="0.0.0.0", port=8050)
+    # parse_xml()
+
+    # Process timeseries
     """
     df, station, date = create_file_list(ind, "./results/timeseries/raw/", ".parquet")
     df = pd.read_parquet(in_path + station + "/" + date)
@@ -50,22 +51,23 @@ if __name__ == "__main__":
     #make_output_folder("./results/timeseries/clipped/" + station)
     df.to_parquet("./results/timeseries/raw/" + station + "/" + date)
     """
-    # plot timeseries
+    # Plot timeseries
     """
     in_path="./results/timeseries/clipped/"
     station, date = create_file_list(ind, in_path, ".parquet")
     plot_timeseries(station, date)
     """
-    #process_station_ellipticity(ind)
+    # Process ellipticity
+    # process_station_ellipticity(ind)
 
-    # plot ellipticity
+    # Plot ellipticity
     """
     station, date = create_file_list(ind, "./results/raydec/", ".nc")
     make_output_folder("./results/figures/ellipticity/")
     plot_ellipticity(station, date, in_path="./results/raydec/", out_path="./results/figures/ellipticity/")
     """
 
-    #label window outliers
+    # label window outliers
     """
     in_path = "./results/raydec/0-2-dfpar/"
     out_path = "./results/raydec/0-2-dfpar-QC/"
@@ -82,15 +84,16 @@ if __name__ == "__main__":
     """
 
     # plot ellipticity QC
-    #plot_ellipticity_outliers()
-    #save_to_csv()
+    # plot_ellipticity_outliers()
+    # save_to_csv()
 
-    #plot_best_csv()
+    # plot_best_csv()
 
-    #plot_f_0_map()
-    """get_station_positions(0)
+    # plot_f_0_map()
+    """
+    get_station_positions(0)
     get_station_positions(1)
-    get_station_positions(2)"""
+    get_station_positions(2)
+    """
 
-
-
+    pass
