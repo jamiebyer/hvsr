@@ -1,7 +1,7 @@
 from obspy import read
 import numpy as np
 from bs4 import BeautifulSoup
-import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import os
 import sys
@@ -51,6 +51,109 @@ def xml_to_dict(contents, include):
             results_dict[c.name] = result
 
     return results_dict
+
+
+def change_coords(df):
+    deg, min, sec, dir = df.split(" ")
+
+    coords = (float(deg) + float(min) / 60 + float(sec) / (60 * 60)) * (
+        -1 if dir in ["W", "S"] else 1
+    )
+    return coords
+
+
+def get_station_coords():
+    df = pd.read_csv("./data/spreadsheets/station_coords.csv")
+
+    # read file names
+    in_dir = r"./../../gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/"
+    # get serial and lat, lon for each file
+    files = os.listdir(in_dir)
+
+    lats = []
+    lons = []
+    elevs = []
+    complete = []
+
+    # Whitehorse_ANT/453024025.0001.2024.06.06.18.04.52.000.E.miniseed
+    file_split = [f.split(".") for f in files]
+
+    serials, start_dates, end_dates = [], [], []
+    for f in file_split:
+        serial = f[0].replace("4530", "")
+        start_date = datetime(
+            file_split[2],
+            file_split[3],
+            file_split[4],
+            file_split[5],
+            file_split[6],
+            file_split[7],
+        )
+        end_date = datetime(
+            file_split[2],
+            file_split[3],
+            file_split[4] + 1,
+            0,
+            0,
+            0,
+        )
+
+        inds = (
+            (start_date >= df["Start_time (UTC)"])
+            and (start_date < df["End_time (UTC)"])
+            and (df["Serial"] == serial)
+        )
+        if len(inds) != 1:
+            raise ValueError
+
+        lat = df["GNSS_latitude"].iloc(inds).values[0]
+        lon = df["GNSS_longitude"].iloc(inds).values[0]
+        elev = df["GNSS_elevation"].iloc(inds).values[0]
+
+        # mark the files with incomplete data
+        # sections less than 24h
+        recording_time = (
+            df["End_time (UTC)"].iloc(inds).values[0]
+            - df["Start_time (UTC)"].iloc(inds).values[0]
+        )
+        if recording_time < timedelta(hours=24) or (
+            start_date.hour != 0 or start_date.minure != 0 or start_date.second != 0
+        ):
+            complete.append(False)
+        else:
+            complete.append(True)
+
+        serials.append(serial)
+        start_dates.append(start_date)
+        end_dates.append(end_date)
+        lats.append(lat)
+        lons.append(lon)
+        elevs.append(elev)
+
+    # convert coords to lats/lons
+    lat = change_coords(df["GNSS_latitude"])
+    lon = change_coords(df["GNSS_longitude"])
+
+    df_file_mapping = {
+        "file": files,
+        "serial": serials,
+        "start_date": start_dates,
+        "end_date": end_dates,
+        "lat": lats,
+        "lon": lons,
+        "elev": elevs,
+    }
+
+    # give site name to files with same lat, lon, elev (within threshold?)
+
+    # group rows by coords/site-- within threshold?
+    # where lat and lon are unique
+    df_file_mapping["site"] = df_file_mapping.groupby(["lat", "lon", "elev"]).keys
+    print(df_file_mapping)
+
+    # save file mapping df
+
+    # copy files to a new directory, sorted by site/coords
 
 
 def parse_xml():

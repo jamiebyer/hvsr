@@ -152,34 +152,6 @@ def scale_bar(
 ###### PLOTTING STATION LOCATIONS ######
 
 
-def get_station_locations_full_xml():
-    path = "./data/FDSN_Information.xml"
-
-    with open(path, "r") as f:
-        file = f.read()
-
-    soup = BeautifulSoup(file, "xml")
-    sites = soup.find_all("Site")
-    names = [("".join(filter(str.isdigit, site.text))) for site in sites]
-
-    lats = [float(lat.text) for lat in soup.find_all("Latitude")]
-    lons = [float(lon.text) for lon in soup.find_all("Longitude")]
-
-    return names, lats, lons
-
-
-def get_station_locations():
-    path = "./data/parsed_xml.csv"
-
-    df = pd.read_csv(path)
-    # sites = soup.find_all("Site")
-    names = df["Site"]
-    lats = df["Latitude"]
-    lons = df["Longitude"]
-
-    return names, lats, lons
-
-
 def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
 
     # Google image tiling
@@ -199,7 +171,7 @@ def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
     )
 
     # Create figure and axis (you might want to edit this to focus on station coverage)
-    fig = plt.figure(figsize=(10,10))
+    fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(projection=proj)
 
     ax.set_extent([-135.3, -134.9, 60.65, 60.81])
@@ -226,15 +198,12 @@ def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
     gl1.xlabel_style = {"size": 10}
     gl1.ylabel_style = {"size": 10}
 
-
-
     positions_df = pd.read_csv("./data/station_positions.csv")
     mapping_df = pd.read_csv("./data/f_0_mapping.csv")
 
     f_0_sites = mapping_df["Site"].values
 
     f_0_site_inds = np.array([c in f_0_sites for c in positions_df["Code"].values])
-
 
     # plot blank sites
     ax.scatter(
@@ -247,7 +216,7 @@ def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
         zorder=9,
         # label=names,
     )
-    
+
     # plot f_0 sites
     f_0_list = []
     a = 0
@@ -264,19 +233,17 @@ def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
 
         w = np.unique(df["wind"])[0]
 
-        median = df["median"][df["wind"]==w].values
-        freqs = df["freqs"][df["wind"]==w].values
-        
-        peaks, _ = find_peaks(median, height=0.7*median.max())
+        median = df["median"][df["wind"] == w].values
+        freqs = df["freqs"][df["wind"] == w].values
 
-        peak_ind=0
+        peaks, _ = find_peaks(median, height=0.7 * median.max())
+
+        peak_ind = 0
         f_0 = freqs[peaks[peak_ind]]
         f_0_list.append(f_0)
-        a+=1
+        a += 1
 
-
-
-    cm = plt.cm.get_cmap('RdYlBu')
+    cm = plt.cm.get_cmap("RdYlBu")
     sc = ax.scatter(
         positions_df["Lon"][f_0_site_inds == True],
         positions_df["Lat"][f_0_site_inds == True],
@@ -287,7 +254,7 @@ def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
         transform=ccrs.PlateCarree(),
         zorder=9,
         # label=names,
-        norm=colors.LogNorm()
+        norm=colors.LogNorm(),
     )
 
     plt.colorbar(sc)
@@ -299,7 +266,6 @@ def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
     # Save figure
     plt.savefig("./results/figures/f_0_map.png", dpi=300, bbox_inches="tight")
 
-    
 
 def plot_map(fig, gs, station=None):
     names, lats, lons = get_station_locations()
@@ -382,5 +348,3 @@ def plot_map(fig, gs, station=None):
     # Save figure
     # plt.savefig("test_map.png", dpi=300, bbox_inches="tight")
     return fig
-
-

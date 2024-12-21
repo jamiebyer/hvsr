@@ -14,6 +14,7 @@ from plotting.app_plotting import (
     plot_station_locations,
     plot_temperature,
     plot_timeseries,
+    plot_ellipticity,
 )
 
 
@@ -83,28 +84,30 @@ def update_display_plots(display_plots):
     ]
 
 
-# TIMESERIES PLOT
-
-
 @app.callback(
-    Output(component_id="timeseries_fig", component_property="figure"),
+    Output(component_id="timeseries_fig", component_property="src"),
     Output(component_id="temperature_fig", component_property="figure"),
+    Output(component_id="ellipticity_fig", component_property="src"),
     Input(component_id="dates", component_property="date"),
     Input(component_id="display_plots", component_property="value"),
     Input(component_id="map", component_property="clickData"),
 )
 def update_figures(date, display_plots, click_data):
     if click_data is None or date is None:
-        return go.Figure(), go.Figure()
+        return None, go.Figure(), None
 
-    timeseries_fig, temp_fig = None, None
-    for p in display_plots:
-        if "timeseries" in display_plots:
-            lat = click_data["points"][0]["lat"]
-            lon = click_data["points"][0]["lon"]
-            timeseries_fig = plot_timeseries(xml_df, lat, lon, date)
-        elif "temperature" in display_plots:
-            # temp_fig = plot_temperature()
-            pass
+    timeseries_fig, temp_fig, ellipticity_fig = None, None, None
 
-    return timeseries_fig, temp_fig
+    lat = click_data["points"][0]["lat"]
+    lon = click_data["points"][0]["lon"]
+
+    if "timeseries" in display_plots:
+        timeseries_fig = plot_timeseries(xml_df, lat, lon, date)
+        # pass
+    if "temperature" in display_plots:
+        # temp_fig = plot_temperature()
+        pass
+    if "ellipticity" in display_plots:
+        ellipticity_fig = plot_ellipticity(xml_df, lat, lon, date)
+
+    return timeseries_fig, temp_fig, ellipticity_fig
