@@ -36,11 +36,13 @@ if __name__ == "__main__":
 
     # ind = int(sys.argv[1])
 
+    read_well_data()
+
+    """
     # Launch app
     from app.app import app
-
     app.run_server(debug=True, host="0.0.0.0", port=8050)
-    # parse_xml()
+    """
 
     # Process timeseries
     """

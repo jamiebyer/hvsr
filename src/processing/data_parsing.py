@@ -6,6 +6,7 @@ import pandas as pd
 import os
 import sys
 from utils.utils import is_int, is_date, is_float
+import matplotlib.pyplot as plt
 
 
 ####### PARSING XML ######
@@ -51,6 +52,71 @@ def xml_to_dict(contents, include):
             results_dict[c.name] = result
 
     return results_dict
+
+
+def parse_xml():
+    """
+    Loop over station tags.
+        - Save Site/Name
+        - From each channel, save DataAvalibility, Latitude, Longitude, Elevation
+        and Description/SerialNumber
+        - Confirm the information is the same for all three channels
+
+
+    for item in station:
+        # contains: Latitude, Longitude, Elevation, Site, CreationDate, TotalNumberChannels, SelectedNumberChannels
+        # Channels: EPZ, EPN, EPE
+        for i in item:
+            # contains: DataAvalibility, Latitude, Longitude, Elevation, Depth, Azimuth, Dip, Type, SampleRate, ClockDrift,
+            # Sensor information
+            for j in i:
+                # contains: Description, Manufacturer, SerialNumber, InstrumentSensitivity, Stage
+    """
+    path = "./data/FDSN_Information.xml"
+
+    with open(path, "r") as f:
+        file = f.read()
+
+    soup = BeautifulSoup(file, "xml")
+
+    # ["SerialNumber", "Latitude", "Longitude", "Site"]
+
+    results = {
+        "site": [],
+        "start_date": [],
+        "end_date": [],
+        "lat": [],
+        "lon": [],
+        "elev": [],
+        "serial": [],
+    }
+    for station in soup.find_all("Station"):
+        site = station.find("Site").find("Name").text
+        start_dates = [d["start"] for d in station.find_all("Extent")]
+        end_dates = [d["end"] for d in station.find_all("Extent")]
+        lats = [l.text for l in station.find_all("Latitude")]
+        lons = [l.text for l in station.find_all("Longitude")]
+        elevs = [e.text for e in station.find_all("Elevation")]
+        serials = [s.text for s in station.find_all("SerialNumber")]
+
+        for prop in [start_dates, end_dates, lats, lons, elevs, serials]:
+            if len(np.unique(prop, axis=0)) != 1:
+                raise ValueError
+
+        results["site"].append(site)
+        results["start_date"].append(start_dates[0])
+        results["end_date"].append(end_dates[0])
+        results["lat"].append(lats[0])
+        results["lon"].append(lons[0])
+        results["elev"].append(elevs[0])
+        results["serial"].append(serials[0])
+
+    df = pd.DataFrame(results)
+    df.to_csv("./results/xml_info.csv")
+    print(df)
+
+
+### STATION COORDS ###
 
 
 def change_coords(df):
@@ -156,71 +222,6 @@ def get_station_coords():
     # copy files to a new directory, sorted by site/coords
 
 
-def parse_xml():
-    """
-    Loop over station tags.
-        - Save Site/Name
-        - From each channel, save DataAvalibility, Latitude, Longitude, Elevation
-        and Description/SerialNumber
-        - Confirm the information is the same for all three channels
-
-
-    for item in station:
-        # contains: Latitude, Longitude, Elevation, Site, CreationDate, TotalNumberChannels, SelectedNumberChannels
-        # Channels: EPZ, EPN, EPE
-        for i in item:
-            # contains: DataAvalibility, Latitude, Longitude, Elevation, Depth, Azimuth, Dip, Type, SampleRate, ClockDrift,
-            # Sensor information
-            for j in i:
-                # contains: Description, Manufacturer, SerialNumber, InstrumentSensitivity, Stage
-    """
-    path = "./data/FDSN_Information.xml"
-
-    with open(path, "r") as f:
-        file = f.read()
-
-    soup = BeautifulSoup(file, "xml")
-
-    # ["SerialNumber", "Latitude", "Longitude", "Site"]
-
-    results = {
-        "site": [],
-        "start_date": [],
-        "end_date": [],
-        "lat": [],
-        "lon": [],
-        "elev": [],
-        "serial": [],
-    }
-    for station in soup.find_all("Station"):
-        site = station.find("Site").find("Name").text
-        start_dates = [d["start"] for d in station.find_all("Extent")]
-        end_dates = [d["end"] for d in station.find_all("Extent")]
-        lats = [l.text for l in station.find_all("Latitude")]
-        lons = [l.text for l in station.find_all("Longitude")]
-        elevs = [e.text for e in station.find_all("Elevation")]
-        serials = [s.text for s in station.find_all("SerialNumber")]
-
-        for prop in [start_dates, end_dates, lats, lons, elevs, serials]:
-            if len(np.unique(prop, axis=0)) != 1:
-                raise ValueError
-
-        results["site"].append(site)
-        results["start_date"].append(start_dates[0])
-        results["end_date"].append(end_dates[0])
-        results["lat"].append(lats[0])
-        results["lon"].append(lons[0])
-        results["elev"].append(elevs[0])
-        results["serial"].append(serials[0])
-
-    df = pd.DataFrame(results)
-    df.to_csv("./results/xml_info.csv")
-    print(df)
-
-
-###### GET MAPPING OF STATION AND FILES ######
-
-
 def get_file_information():
     """
     Iterate over files in data directory.
@@ -294,6 +295,9 @@ def get_station_positions(
     station = trace_east.stats["station"]
 
 
+### TEMPERATURE DATA ###
+
+
 def split_temperature_csv():
     path = "./data/other_data/Temperature_20240828163333.csv"
     station_rows = {}
@@ -328,3 +332,67 @@ def split_temperature_csv():
         )
         print(df)
         df.to_csv("./data/temperature/" + station + ".csv")
+
+
+### WELL DATA ###
+
+
+def read_well_data():
+    """
+    X,
+    Y,
+    OBJECTID,
+    BOREHOLE_ID,
+    WELL_NAME,
+    COMMUNITY,
+    PURPOSE,
+    WELL_DEPTH_FTBGS,
+    DEPTH_TO_BEDROCK_FTBGS,
+    ESTIMATED_YIELD_GPM,
+    YIELD_METHOD,
+    STATIC_WATER_LEVEL_FTBTOC,
+    DRILL_YEAR,
+    DRILL_MONTH,
+    DRILL_DAY,
+    CASING_OUTSIDE_DIAM_IN,
+    TOP_OF_SCREEN_FTBGS,
+    BOTTOM_OF_SCREEN_FTBGS,
+    TOP_OF_CASING_ELEVATION_MASL,
+    GROUND_LEVEL_ELEVATION_MASL,
+    WELL_HEAD_STICKUP_M,
+    WELL_LOG,
+    LINK,
+    QUALITY,
+    LOCATION_SOURCE,
+    LATITUDE_DD,
+    LONGITUDE_DD
+    """
+
+    # X: longitude
+    # Y: latitude
+    # WELL_DEPTH_FTBGS:
+    # DEPTH_TO_BEDROCK_FTBGS:
+    # GROUND_LEVEL_ELEVATION_MASL:
+
+    df = pd.read_csv("./data/yukon_datasets/Water_wells.csv")
+
+    lons = df["X"]
+    lats = df["Y"]
+    well_depth = df["WELL_DEPTH_FTBGS"]
+    depth_to_bedrock = df["DEPTH_TO_BEDROCK_FTBGS"]
+    ground_level_elevation = df["GROUND_LEVEL_ELEVATION_MASL"]
+
+    depth_to_bedrock = (
+        depth_to_bedrock.str.replace(">", "").str.replace("<", "").values.astype(float)
+    )
+
+    inds = (
+        (lons > -136)
+        & (lons < -134)
+        & (lats > 60)
+        & (lats < 61)
+        & (depth_to_bedrock < 2800)
+    )
+    plt.scatter(lons[inds], lats[inds], c=depth_to_bedrock[inds])
+    plt.colorbar()
+    plt.show()
