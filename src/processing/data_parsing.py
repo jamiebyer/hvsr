@@ -54,103 +54,222 @@ def xml_to_dict(contents, include):
 
 
 def change_coords(df):
-    deg, min, sec, dir = df.split(" ")
+    coords_list = []
+    for d in df:
+        spl = d.split(" ")
+        deg = spl[0]
+        min = spl[1]
+        sec = spl[2]
+        dir = spl[3]
 
-    coords = (float(deg) + float(min) / 60 + float(sec) / (60 * 60)) * (
-        -1 if dir in ["W", "S"] else 1
-    )
-    return coords
+        coords = (float(deg) + float(min) / 60 + float(sec) / (60 * 60)) * (
+            -1 if dir in ["W", "S"] else 1
+        )
+        coords_list.append(coords)
+    
+    return coords_list
 
 
 def get_station_coords():
-    df = pd.read_csv("./data/spreadsheets/station_coords.csv")
+    df = pd.read_csv("./data/spreadsheets/stations_coords.csv")
+    planned_df = pd.read_csv("./data/spreadsheets/deployment_coords.csv")
 
     # read file names
     in_dir = r"./../../gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/"
     # get serial and lat, lon for each file
     files = os.listdir(in_dir)
 
+    out_files = []
     lats = []
     lons = []
     elevs = []
     complete = []
 
+    df["Start_time (UTC)"] = pd.to_datetime(df["Start_time (UTC)"])
+    df["End_time (UTC)"] = pd.to_datetime(df["End_time (UTC)"])
+
+
     # Whitehorse_ANT/453024025.0001.2024.06.06.18.04.52.000.E.miniseed
     file_split = [f.split(".") for f in files]
 
     serials, start_dates, end_dates = [], [], []
-    for f in file_split:
-        serial = f[0].replace("4530", "")
+    for ind, f in enumerate(file_split):
+        if "FDSN Information" in files[ind]:
+            continue
+        serial = int(f[0].replace("4530", ""))
         start_date = datetime(
-            file_split[2],
-            file_split[3],
-            file_split[4],
-            file_split[5],
-            file_split[6],
-            file_split[7],
+            int(f[2]),
+            int(f[3]),
+            int(f[4]),
+            int(f[5]),
+            int(f[6]),
+            int(f[7]),
         )
         end_date = datetime(
-            file_split[2],
-            file_split[3],
-            file_split[4] + 1,
+            int(f[2]),
+            int(f[3]),
+            int(f[4]),
             0,
             0,
             0,
-        )
+        ) + timedelta(days=1)
 
-        inds = (
-            (start_date >= df["Start_time (UTC)"])
-            and (start_date < df["End_time (UTC)"])
-            and (df["Serial"] == serial)
-        )
-        if len(inds) != 1:
-            raise ValueError
+        rows = df.loc[
+            (start_date < df["End_time (UTC)"])
+            & (df["Start_time (UTC)"] < end_date)
+            & (df["Serial"] == serial)
+        ]
+        if len(rows) < 1:
+            continue
 
-        lat = df["GNSS_latitude"].iloc(inds).values[0]
-        lon = df["GNSS_longitude"].iloc(inds).values[0]
-        elev = df["GNSS_elevation"].iloc(inds).values[0]
+        lat = rows["GNSS_latitude"].values
+        lon = rows["GNSS_longitude"].values
+        elev = rows["GNSS_elevation"].values
 
         # mark the files with incomplete data
         # sections less than 24h
         recording_time = (
-            df["End_time (UTC)"].iloc(inds).values[0]
-            - df["Start_time (UTC)"].iloc(inds).values[0]
+            rows["End_time (UTC)"].values
+            - rows["Start_time (UTC)"].values
         )
-        if recording_time < timedelta(hours=24) or (
-            start_date.hour != 0 or start_date.minure != 0 or start_date.second != 0
-        ):
-            complete.append(False)
-        else:
-            complete.append(True)
+        
+        complete += list(recording_time >= np.timedelta64(24, "h")) and len(rows) * [
+            start_date.hour == 0 & start_date.minute == 0 & start_date.second == 0
+        ]
 
-        serials.append(serial)
-        start_dates.append(start_date)
-        end_dates.append(end_date)
-        lats.append(lat)
-        lons.append(lon)
-        elevs.append(elev)
+        serials += len(rows) * [serial]
+        start_dates += len(rows) * [start_date]
+        end_dates += len(rows) * [end_date]
+        lats += list(lat)
+        lons += list(lon)
+        elevs += list(elev)
+        out_files += len(rows) * [files[ind]]
 
     # convert coords to lats/lons
-    lat = change_coords(df["GNSS_latitude"])
-    lon = change_coords(df["GNSS_longitude"])
+    new_lats = change_coords(lats)
+    new_lons = change_coords(lons)
 
-    df_file_mapping = {
-        "file": files,
+    df_file_mapping = pd.DataFrame({
+        "file": out_files,
         "serial": serials,
         "start_date": start_dates,
         "end_date": end_dates,
-        "lat": lats,
-        "lon": lons,
+        "lat": new_lats,
+        "lon": new_lons,
         "elev": elevs,
-    }
+        "complete": complete
+    })
+
+
+
 
     # give site name to files with same lat, lon, elev (within threshold?)
 
     # group rows by coords/site-- within threshold?
     # where lat and lon are unique
-    df_file_mapping["site"] = df_file_mapping.groupby(["lat", "lon", "elev"]).keys
-    print(df_file_mapping)
+    
+    df_file_mapping["round_lat"] = df_file_mapping["lat"].round(3)
+    df_file_mapping["round_lon"] = df_file_mapping["lon"].round(3)
 
+    #df_file_mapping["round_elev"] = df_file_mapping["elev"].round(0)
+
+    df_file_mapping["site"] = df_file_mapping.groupby(["round_lat", "round_lon"]).ngroup()+1
+
+    #print(len(np.unique(df_file_mapping["site"])))
+    #print(len(np.unique(df_file_mapping.loc[df_file_mapping["complete"] == True]["site"])))
+    lats, lons = [], []
+    for i in np.unique(df_file_mapping["site"]):
+        d = df_file_mapping[df_file_mapping["site"] == i]
+        lats.append(d["lat"].values[0])
+        lons.append(d["lon"].values[0])
+    
+    import matplotlib.pyplot as plt
+
+    plt.rcParams["figure.figsize"] = (20, 15)
+
+    # y: site, x: date, lable:serial
+    # for each serial, get full x and y
+    serials = np.unique(df_file_mapping["serial"].values)
+
+    [plt.axhline(y, c="grey", alpha=0.2) for y in np.arange(0, 80, 1)]
+    for s in serials:
+        subset = df_file_mapping[df_file_mapping["serial"] == s]
+        subset = subset.sort_values(["start_date"])
+        dates, sites = [], []
+        for ind in range(len(subset)):
+            s_date = subset["start_date"].values[ind]
+            site = subset["site"].values[ind]
+            
+            if len(sites) > 0 and sites[-1] != site:
+                if len(sites) > 2:
+                    plt.text(dates[0], sites[0]+0.1, s)
+                    plt.plot(dates, sites, linestyle = 'solid', color="blue")
+
+                dates, sites = [], []
+
+            dates.append(s_date)
+            #dates = [subset["start_date"].values[ind], subset["end_date"].values[ind]]
+            #d_range = np.arange(subset["start_date"].values[ind], subset["end_date"].values[ind], timedelta(hours=2)).astype(datetime)
+            #dates += list(d_range)
+            sites += [site]
+            
+        
+    
+    plt.yticks(np.arange(0, 80, 1))
+    #plt.legend()
+    plt.savefig("./results/sites_timeseries.png")
+
+    plt.clf()
+    plt.scatter(lons, lats)
+    for ind, s in enumerate(np.unique(df_file_mapping["site"])):
+        plt.text(lons[ind], lats[ind], s)
+
+    plt.xlim([-135.3, -134.9])
+    plt.ylim([60.635, 60.84])
+
+    plt.savefig("./results/sites.png")
+
+    """
+
+
+    plt.rcParams["figure.figsize"] = (10, 10)
+    
+    plt.subplot(1, 3, 1)
+    plt.scatter(lons, lats, s=14)
+    for ind in range(len(planned_df)):
+        plt.text(planned_df["Lon"].values[ind], planned_df["Lat"].values[ind], planned_df["Station"].values[ind])
+    plt.title("screenshots")
+    plt.xlim([-135.3, -134.9])
+    plt.ylim([60.635, 60.84])
+    plt.subplot(1, 3, 2)
+    plt.scatter(planned_df["Lon"], planned_df["Lat"], s=8)
+    for ind in range(len(planned_df)):
+        plt.text(planned_df["Lon"].values[ind], planned_df["Lat"].values[ind], planned_df["Station"].values[ind])
+    plt.title("planned sites")
+    plt.xlim([-135.3, -134.9])
+    plt.ylim([60.635, 60.84])
+    plt.subplot(1, 3, 3)
+    
+    plt.scatter(lons, lats, s=14)
+    plt.title("both")
+    #plt.xlim([-135.3, -134.9])
+    #plt.ylim([60.635, 60.84])
+    plt.xlim([-135.2, -135])
+    plt.ylim([60.726, 60.777])
+
+    #plt.scatter(df_file_mapping["lon"], df_file_mapping["lat"], s=8, label="screenshots")
+    #plt.scatter(df_file_mapping["round_lon"], df_file_mapping["round_lat"], s=6)
+
+    plt.scatter(planned_df["Lon"], planned_df["Lat"], s=8)
+    for ind in range(len(planned_df)):
+        plt.text(planned_df["Lon"].values[ind], planned_df["Lat"].values[ind], planned_df["Station"].values[ind])
+    #plt.legend()
+
+    #plot site and time..
+
+
+    plt.savefig("./results/sites.png")
+    """
     # save file mapping df
 
     # copy files to a new directory, sorted by site/coords
