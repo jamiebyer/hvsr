@@ -36,10 +36,15 @@ if __name__ == "__main__":
 
     # ind = int(sys.argv[1])
 
+    get_station_file_mapping()
+    plot_station_schedule()
+
     # Launch app
+    """
     from app.app import app
 
     app.run_server(debug=True, host="0.0.0.0", port=8050)
+    """
     # parse_xml()
 
     # Process timeseries

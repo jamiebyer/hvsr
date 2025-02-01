@@ -6,6 +6,8 @@ import pandas as pd
 import os
 import sys
 from utils.utils import is_int, is_date, is_float
+import matplotlib.pyplot as plt
+import shutil
 
 
 ####### PARSING XML ######
@@ -41,7 +43,7 @@ def xml_to_dict(contents, include):
             elif is_float(result):
                 result = float(result)
             elif is_date(result):
-                result = datetime.datetime.strptime(result, "%Y-%m-%dT%H:%M:%S")
+                result = datetime.strptime(result, "%Y-%m-%dT%H:%M:%S")
         elif c.contents is not None:
             result = xml_to_dict(c.contents, include)
 
@@ -72,7 +74,6 @@ def change_coords(df):
 
 def get_station_coords():
     df = pd.read_csv("./data/spreadsheets/stations_coords.csv")
-    planned_df = pd.read_csv("./data/spreadsheets/deployment_coords.csv")
 
     # read file names
     in_dir = r"./../../gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/"
@@ -114,6 +115,7 @@ def get_station_coords():
             0,
         ) + timedelta(days=1)
 
+        # select any recordings from that day
         rows = df.loc[
             (start_date < df["End_time (UTC)"])
             & (df["Start_time (UTC)"] < end_date)
@@ -161,29 +163,21 @@ def get_station_coords():
     })
 
 
-
-
     # give site name to files with same lat, lon, elev (within threshold?)
 
     # group rows by coords/site-- within threshold?
     # where lat and lon are unique
     
-    df_file_mapping["round_lat"] = df_file_mapping["lat"].round(3)
-    df_file_mapping["round_lon"] = df_file_mapping["lon"].round(3)
+    #df_file_mapping["round_lat"] = df_file_mapping["lat"].round(3)
+    #df_file_mapping["round_lon"] = df_file_mapping["lon"].round(3)
 
-    #df_file_mapping["round_elev"] = df_file_mapping["elev"].round(0)
+    df_file_mapping["site"] = df_file_mapping.groupby(["lat", "lon"]).ngroup()+1
 
-    df_file_mapping["site"] = df_file_mapping.groupby(["round_lat", "round_lon"]).ngroup()+1
-
-    #print(len(np.unique(df_file_mapping["site"])))
-    #print(len(np.unique(df_file_mapping.loc[df_file_mapping["complete"] == True]["site"])))
     lats, lons = [], []
     for i in np.unique(df_file_mapping["site"]):
         d = df_file_mapping[df_file_mapping["site"] == i]
         lats.append(d["lat"].values[0])
         lons.append(d["lon"].values[0])
-    
-    import matplotlib.pyplot as plt
 
     plt.rcParams["figure.figsize"] = (20, 15)
 
@@ -229,47 +223,128 @@ def get_station_coords():
 
     plt.savefig("./results/sites.png")
 
-    """
+    # remove where geophones were moved. (interval around if amplitude reaches max?)
+
+    # save file mapping df
+
+    # copy files to a new directory, sorted by site/coords
 
 
-    plt.rcParams["figure.figsize"] = (10, 10)
+def get_station_file_mapping():
+    in_df = pd.read_csv("./data/spreadsheets/stations_coords.csv")
+
+    # read file names
+    in_dir = r"./../../gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/"
+    # get serial and lat, lon for each file
+    files = np.array(os.listdir(in_dir))
+
+    in_df["Start_time (UTC)"] = pd.to_datetime(in_df["Start_time (UTC)"])
+    in_df["End_time (UTC)"] = pd.to_datetime(in_df["End_time (UTC)"])
+
+    # remove recordings shorter than two days
+    site_inds = in_df["End_time (UTC)"] - in_df["Start_time (UTC)"] > np.timedelta64(72, "h")
+    out_df = in_df[site_inds]
+
+    # convert coords to lats/lons    
+    out_df.loc[:, "GNSS_latitude"] = change_coords(out_df.loc[:, "GNSS_latitude"])
+    out_df.loc[:, "GNSS_longitude"] = change_coords(out_df.loc[:, "GNSS_longitude"])
+
+    # rounding nearby stations
+    out_df.loc[:, "GNSS_latitude"] = out_df.loc[:, "GNSS_latitude"].astype(float).round(3)
+    out_df.loc[:, "GNSS_longitude"] = out_df.loc[:, "GNSS_longitude"].astype(float).round(3)
+    #out_df.loc[:, "GNSS_elevation"] = out_df.loc[:, "GNSS_elevation"].round(3)
     
-    plt.subplot(1, 3, 1)
-    plt.scatter(lons, lats, s=14)
-    for ind in range(len(planned_df)):
-        plt.text(planned_df["Lon"].values[ind], planned_df["Lat"].values[ind], planned_df["Station"].values[ind])
-    plt.title("screenshots")
-    plt.xlim([-135.3, -134.9])
-    plt.ylim([60.635, 60.84])
-    plt.subplot(1, 3, 2)
-    plt.scatter(planned_df["Lon"], planned_df["Lat"], s=8)
-    for ind in range(len(planned_df)):
-        plt.text(planned_df["Lon"].values[ind], planned_df["Lat"].values[ind], planned_df["Station"].values[ind])
-    plt.title("planned sites")
-    plt.xlim([-135.3, -134.9])
-    plt.ylim([60.635, 60.84])
-    plt.subplot(1, 3, 3)
+    out_df.loc[:, "site"] = (out_df.groupby(["GNSS_latitude", "GNSS_longitude"]).ngroup()+1).values
     
-    plt.scatter(lons, lats, s=14)
-    plt.title("both")
-    #plt.xlim([-135.3, -134.9])
-    #plt.ylim([60.635, 60.84])
-    plt.xlim([-135.2, -135])
-    plt.ylim([60.726, 60.777])
 
-    #plt.scatter(df_file_mapping["lon"], df_file_mapping["lat"], s=8, label="screenshots")
-    #plt.scatter(df_file_mapping["round_lon"], df_file_mapping["round_lat"], s=6)
+    # map files to recordings
+    # Whitehorse_ANT/453024025.0001.2024.06.06.18.04.52.000.E.miniseed
+    start_dates, end_dates = [], []
+    paths = []
+    for _, recording in out_df.iterrows():
+        # get files with this serial number, and in the correct date range
+        serial = recording["Serial"]
+        file_inds = np.char.startswith(files, "4530" + str(serial))
 
-    plt.scatter(planned_df["Lon"], planned_df["Lat"], s=8)
-    for ind in range(len(planned_df)):
-        plt.text(planned_df["Lon"].values[ind], planned_df["Lat"].values[ind], planned_df["Station"].values[ind])
+        # add all file paths between the start and ending date (remove first and last day/file)
+        # update the start and end date in the df
+
+        d = recording["Start_time (UTC)"]
+        start_date = datetime(2024, d.month, d.day) + timedelta(days=1)
+        d = recording["End_time (UTC)"]
+        end_date = datetime(2024, d.month, d.day) - timedelta(days=1)
+        
+        start_dates.append(start_date)
+        end_dates.append(end_date)
+
+        
+    out_df["Start_time (UTC)"] = start_dates
+    out_df["End_time (UTC)"] = end_dates
+    #out_df.loc[:, "paths"] = paths
+
+    out_df.to_csv("./data/df_mapping.csv", index=False)
+
+
+    
+def organize_station_files():
+    # create folder for site
+    out_dir = "./results/timeseries/sorted/"
+    os.mkdir(out_dir + site_ind)
+
+    dates = pd.date_range(start=start_date, end=end_date, inclusive="both")
+
+    p = []
+    for d in dates:
+        # get filename that starts with serial and ends with date, all directions
+        date = "2024."+ str(d.month).rjust(2,"0") + "." + str(d.day).rjust(2,"0")
+        file_inds = file_inds & [date in f for f in files]
+        
+        # move 3 components to folder
+        [p.append(in_dir + f) for f in files[file_inds]]
+        # [shutil.copyfile(in_dir + f, out_dir + f) for f in files_subset.values]
+    
+    paths.append(p)
+
+
+
+def plot_station_schedule():
+    in_dir = "./data/df_mapping.csv"
+    df_mapping = pd.read_csv(in_dir)
+
+    plt.rcParams["figure.figsize"] = (20, 15)
+
+    df_mapping["Start_time (UTC)"] = pd.to_datetime(df_mapping["Start_time (UTC)"])
+    df_mapping["End_time (UTC)"] = pd.to_datetime(df_mapping["End_time (UTC)"])
+
+    start_date = df_mapping["Start_time (UTC)"]
+
+    [plt.axhline(y, c="grey", alpha=0.2) for y in np.arange(70)]
+    for ind, recording in df_mapping.iterrows():
+        dates = pd.date_range(start=recording["Start_time (UTC)"], end=recording["End_time (UTC)"], inclusive="both")
+        plt.plot(dates, len(dates)*[recording["site"]], linestyle = 'solid', color="blue")
+    
     #plt.legend()
+    plt.savefig("./results/sites_timeseries.png")
+            
+    df_mapping = df_mapping.drop_duplicates(subset=["site"])
+    lons = df_mapping["GNSS_longitude"]
+    lats = df_mapping["GNSS_latitude"]
+    
 
-    #plot site and time..
+    plt.clf()
+    plt.scatter(lons, lats)
+    for ind, recording in df_mapping.iterrows():
+        plt.text(recording["GNSS_longitude"], recording["GNSS_latitude"], recording["site"])
 
+    plt.xlim([-135.3, -134.9])
+    plt.ylim([60.635, 60.84])
+    plt.xlabel("date")
+    plt.ylabel("site")
 
     plt.savefig("./results/sites.png")
-    """
+
+    # remove where geophones were moved. (interval around if amplitude reaches max?)
+
     # save file mapping df
 
     # copy files to a new directory, sorted by site/coords
