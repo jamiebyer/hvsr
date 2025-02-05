@@ -7,7 +7,11 @@
 - Save current clipped timeseries to plots.
 - Save current ellipticity to plots
 - Fix up temperature plot
+- Upload data so app can plot
 
+- validate curve stability
+- spike removal: STA LTA
+- temporal ellipticity
 
 ---
 ## Data

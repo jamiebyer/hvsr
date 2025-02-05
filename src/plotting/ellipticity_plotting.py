@@ -146,7 +146,7 @@ def plot_ellipticity(station, date, in_path="./results/raydec/", out_path="./res
         color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
         log_x=True,
     )
-    raydec_fig.update_layout(title="453024237_0012-2024-06-16")
+    raydec_fig.update_layout(title=str(station) + ", " + str(date))
     make_output_folder(out_path + str(station) + "/")
     raydec_fig.write_image(
         out_path + station + "/" + date + ".png"
@@ -519,41 +519,3 @@ def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results
             plt.savefig(out_path + file_name.replace(".csv", ".png"))
     
 
-
-# STACKING PLOT
-
-
-def plot_stacking(ind):
-    stations = os.listdir("./results/raydec/stacked/nc/")
-    station = stations[ind]
-    in_dir = "./results/raydec/stacked/nc/" + station  # + "_full.nc"
-    da_raydec = xr.open_dataset(in_dir)
-
-    freqs = np.array(da_raydec.coords["freqs"].values)
-    mean = np.array(da_raydec.mean(["wind", "files"]).data_vars["ellipticity"].values)
-    std = np.array(da_raydec.mean(["wind", "files"]).data_vars["ellipticity"].values)
-
-    # create figure
-    fig = plt.figure(figsize=(24, 8))
-    gs = fig.add_gridspec(1, 2, width_ratios=[2, 1])
-    ax1 = fig.add_subplot(gs[0])
-
-    # ax1 = fig.add_subplot(1, 2, 1)
-
-    ax1.errorbar(
-        freqs,
-        mean,
-        yerr=std,
-        c="black",
-        label="mean",
-    )
-
-    ax1.set_xscale("log")
-    ax1.set_xlabel("frequency (log)")
-    ax1.set_ylabel("ellipticity")
-
-    fig = plot_map(fig, gs, station.split("_full")[0])
-
-    fig.suptitle(station + " (all days)")
-
-    plt.savefig("./results/figures/stacked/" + station.replace(".nc", ".png"))

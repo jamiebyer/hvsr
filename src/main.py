@@ -34,12 +34,15 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    # ind = int(sys.argv[1])
+    ind = int(sys.argv[1])
 
-    # Launch app
+    """
+    # App
     from app.app import app
-
     app.run_server(debug=True, host="0.0.0.0", port=8050)
+    """
+    
+    # Parse xml
     # parse_xml()
 
     # Process timeseries
@@ -55,17 +58,17 @@ if __name__ == "__main__":
     """
     in_path="./results/timeseries/clipped/"
     station, date = create_file_list(ind, in_path, ".parquet")
-    plot_timeseries(station, date)
+    plot_timeseries(station, date, in_path)
     """
     # Process ellipticity
     # process_station_ellipticity(ind)
 
     # Plot ellipticity
-    """
-    station, date = create_file_list(ind, "./results/raydec/", ".nc")
+    #"""
+    station, date = create_file_list(ind, "./results/raydec/QC/", ".nc")
     make_output_folder("./results/figures/ellipticity/")
-    plot_ellipticity(station, date, in_path="./results/raydec/", out_path="./results/figures/ellipticity/")
-    """
+    plot_ellipticity(station, date, in_path="./results/raydec/QC/", out_path="./results/figures/ellipticity/")
+    #"""
 
     # label window outliers
     """

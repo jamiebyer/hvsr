@@ -10,8 +10,6 @@ from processing.data_parsing import parse_xml
 
 
 # MAP PLOT
-
-
 def plot_station_locations():
     df = pd.read_csv("./results/xml_info.csv", index_col=0)
 
