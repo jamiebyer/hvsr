@@ -36,10 +36,14 @@ if __name__ == "__main__":
 
     # ind = int(sys.argv[1])
 
-    read_well_data()
+    # plot_ellipticity_examples()
+    plot_stations_map()
+    # plot_globe()
 
-    """
+    # read_well_data()
+
     # Launch app
+    """
     from app.app import app
     app.run_server(debug=True, host="0.0.0.0", port=8050)
     """
@@ -83,19 +87,6 @@ if __name__ == "__main__":
     make_output_folder(out_path)
     make_output_folder(out_path + station)
     da_raydec.to_dataset(name="ellipticity").to_netcdf(out_path + station + "/" + date + ".nc")
-    """
-
-    # plot ellipticity QC
-    # plot_ellipticity_outliers()
-    # save_to_csv()
-
-    # plot_best_csv()
-
-    # plot_f_0_map()
-    """
-    get_station_positions(0)
-    get_station_positions(1)
-    get_station_positions(2)
     """
 
     pass

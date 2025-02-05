@@ -20,6 +20,8 @@ from math import floor
 import plotly.graph_objects as go
 from scipy.signal import find_peaks
 
+from processing.data_parsing import change_coords
+
 
 def plot_globe():
     # province boundaries
@@ -33,19 +35,20 @@ def plot_globe():
         edgecolor="k",
     )
 
-    lat_PR = 54.72
-    lon_PR = -113.29
+    lat_PR = 60.7216
+    lon_PR = -135.0549
     lat_DC = 56.0027
     lon_DC = -119.7426
 
-    plt.figure(figsize=(4, 4))
-    ax = plt.axes(
+    fig = plt.figure(figsize=(4, 4))
+    ax = fig.add_subplot(
         projection=ccrs.NearsidePerspective(
             satellite_height=2000000.0,
             central_longitude=lon_PR,
             central_latitude=lat_PR,
         )
     )
+
     ax.coastlines(resolution=resol2)
     ax.add_feature(cf.BORDERS)
     ax.add_feature(
@@ -67,7 +70,7 @@ def plot_globe():
     ax.set_ylim(extent[2:])
 
     # Save figure as SVG
-    plt.savefig("world.pdf")
+    plt.savefig("./results/figures/globe_whitehorse.pdf")
 
 
 def utm_from_lon(lon):
@@ -84,7 +87,7 @@ def utm_from_lon(lon):
 
 
 def scale_bar(
-    ax, proj, length, location=(0.5, 0.05), linewidth=3, units="km", m_per_unit=1000
+    ax, proj, length, location=(0.5, 0.05), linewidth=4, units="km", m_per_unit=1000
 ):
     """
 
@@ -108,7 +111,7 @@ def scale_bar(
     # Generate the x coordinate for the ends of the scalebar
     bar_xs = [sbcx - length * m_per_unit / 2, sbcx + length * m_per_unit / 2]
     # buffer for scalebar
-    buffer = [patheffects.withStroke(linewidth=5, foreground="w")]
+    buffer = [patheffects.withStroke(linewidth=6, foreground="w")]
     # Plot the scalebar with buffer
     ax.plot(
         bar_xs,
@@ -119,12 +122,13 @@ def scale_bar(
         path_effects=buffer,
     )
     # buffer for text
-    buffer = [patheffects.withStroke(linewidth=3, foreground="w")]
+    buffer = [patheffects.withStroke(linewidth=6, foreground="w")]
     # Plot the scalebar label
     t0 = ax.text(
         sbcx,
         sbcy + 1,
         str(length) + " " + units,
+        fontsize=12,
         transform=utm,
         horizontalalignment="center",
         verticalalignment="bottom",
@@ -137,6 +141,8 @@ def scale_bar(
         left,
         sbcy + 1,
         "\u25B2\nN",
+        fontsize=10,
+        weight="bold",
         transform=utm,
         horizontalalignment="center",
         verticalalignment="bottom",
@@ -267,7 +273,88 @@ def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
     plt.savefig("./results/figures/f_0_map.png", dpi=300, bbox_inches="tight")
 
 
+def plot_stations_map():
+    stations_df = pd.read_csv("./data/spreadsheets/stations_coords.csv")
+    lats, lons = change_coords(stations_df["GNSS_latitude"].values), change_coords(
+        stations_df["GNSS_longitude"].values
+    )
+
+    # Google image tiling
+    request1 = cimgt.GoogleTiles(style="satellite")
+    request2 = cimgt.GoogleTiles(
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}.jpg"
+    )
+
+    # Map projection
+    proj = ccrs.AlbersEqualArea(
+        central_longitude=-135.076167,
+        central_latitude=60.729549,
+        false_easting=0.0,
+        false_northing=0.0,
+        standard_parallels=(50, 70.0),
+        globe=None,
+    )
+
+    # Create figure and axis (you might want to edit this to focus on station coverage)
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(projection=proj)
+
+    ax.set_extent([-135.3, -134.9, 60.65, 60.81])
+
+    # Add background
+    ax.add_image(request2, 13)
+    ax.add_image(request1, 13, alpha=0.5)
+
+    # Draw gridlines
+    gl1 = ax.gridlines(
+        draw_labels=True,
+        xlocs=np.arange(-136.0, -134.0, 0.1),
+        ylocs=np.arange(60.0, 61.0, 0.1),
+        linestyle=":",
+        color="w",
+        zorder=2,
+    )
+
+    # Turn off labels on certin sides of figure
+    gl1.top_labels = False
+    gl1.right_labels = False
+
+    # Update label fontsize
+    gl1.xlabel_style = {"size": 16}
+    gl1.ylabel_style = {"size": 16}
+
+    # plot blank sites
+    ax.scatter(
+        lons,
+        lats,
+        color="k",
+        marker="^",
+        s=45,
+        transform=ccrs.PlateCarree(),
+        zorder=9,
+        # label=names,
+    )
+
+    # Add scalebar
+    scale_bar(ax, proj, 4)
+
+    # add well locations
+    df = pd.read_csv("./data/yukon_datasets/Water_wells.csv")
+
+    lons = df["X"]
+    lats = df["Y"]
+
+    ax.scatter(lons, lats, c="red")
+
+    # Save figure
+    plt.savefig(
+        "./results/figures/site/stations_wells_map.png", dpi=300, bbox_inches="tight"
+    )
+
+
 def plot_map(fig, gs, station=None):
+
     names, lats, lons = get_station_locations()
     # print(np.unique(names).shape, np.unique(names)[:10])
     # print(np.unique(lats).shape, np.unique(lats)[:10])
@@ -348,3 +435,70 @@ def plot_map(fig, gs, station=None):
     # Save figure
     # plt.savefig("test_map.png", dpi=300, bbox_inches="tight")
     return fig
+
+
+### WELL DATA ###
+
+
+def read_well_data():
+    """
+    X,
+    Y,
+    OBJECTID,
+    BOREHOLE_ID,
+    WELL_NAME,
+    COMMUNITY,
+    PURPOSE,
+    WELL_DEPTH_FTBGS,
+    DEPTH_TO_BEDROCK_FTBGS,
+    ESTIMATED_YIELD_GPM,
+    YIELD_METHOD,
+    STATIC_WATER_LEVEL_FTBTOC,
+    DRILL_YEAR,
+    DRILL_MONTH,
+    DRILL_DAY,
+    CASING_OUTSIDE_DIAM_IN,
+    TOP_OF_SCREEN_FTBGS,
+    BOTTOM_OF_SCREEN_FTBGS,
+    TOP_OF_CASING_ELEVATION_MASL,
+    GROUND_LEVEL_ELEVATION_MASL,
+    WELL_HEAD_STICKUP_M,
+    WELL_LOG,
+    LINK,
+    QUALITY,
+    LOCATION_SOURCE,
+    LATITUDE_DD,
+    LONGITUDE_DD
+    """
+
+    # X: longitude
+    # Y: latitude
+    # WELL_DEPTH_FTBGS:
+    # DEPTH_TO_BEDROCK_FTBGS:
+    # GROUND_LEVEL_ELEVATION_MASL:
+
+    df = pd.read_csv("./data/yukon_datasets/Water_wells.csv")
+
+    lons = df["X"]
+    lats = df["Y"]
+    well_depth = df["WELL_DEPTH_FTBGS"]
+    depth_to_bedrock = df["DEPTH_TO_BEDROCK_FTBGS"]
+    ground_level_elevation = df["GROUND_LEVEL_ELEVATION_MASL"]
+
+    depth_to_bedrock = (
+        depth_to_bedrock.str.replace(">", "").str.replace("<", "").values.astype(float)
+    )
+
+    inds = (
+        (lons > -136)
+        & (lons < -134)
+        & (lats > 60)
+        & (lats < 61)
+        & (depth_to_bedrock < 2800)
+    )
+    plt.scatter(lons[inds], lats[inds], c=depth_to_bedrock[inds])
+    plt.colorbar()
+    plt.xlim([-135.3, -134.9])
+    plt.ylim([60.65, 60.81])
+
+    plt.show()

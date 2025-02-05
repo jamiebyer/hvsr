@@ -10,6 +10,11 @@
 
 
 ---
+## OTHER DATA
+- Yukon databases
+    - Well holes
+
+---
 ## Data
 - geophone sensor specs: https://smartsolo.com/cp-3.html
 - seismic ambient noise collected in Whitehorse, Yukon between June and August 2024
