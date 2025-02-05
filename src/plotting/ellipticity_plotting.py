@@ -134,9 +134,14 @@ def plot_sensitivity_test():
         )
 
 
-def plot_ellipticity(station, date, in_path="./results/raydec/", out_path="./results/figures/ellipticity/"):
+def plot_ellipticity(
+    station,
+    date,
+    in_path="./results/raydec/",
+    out_path="./results/figures/ellipticity/",
+):
     da_raydec = xr.open_dataarray(in_path + station + "/" + date + ".nc")
-    
+
     da_raydec = da_raydec.dropna(dim="freqs")
 
     da_raydec["median"] = da_raydec.median(dim="wind")
@@ -148,9 +153,41 @@ def plot_ellipticity(station, date, in_path="./results/raydec/", out_path="./res
     )
     raydec_fig.update_layout(title=str(station) + ", " + str(date))
     make_output_folder(out_path + str(station) + "/")
-    raydec_fig.write_image(
-        out_path + station + "/" + date + ".png"
-    )
+    raydec_fig.write_image(out_path + station + "/" + date + ".png")
+
+
+def plot_ellipticity_examples(out_path="./results/figures/ellipticity/"):
+    in_path = "./results/raydec/examples/"
+
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True)
+    axes = [ax1, ax2, ax3]
+
+    for ind, filename in enumerate(os.listdir(in_path)):
+        da_raydec = xr.open_dataarray(in_path + filename)
+        da_raydec = da_raydec.dropna(dim="freqs")
+        da_raydec["median"] = da_raydec.median(dim="wind")
+        # print(da_raydec)
+        # break
+        axes[ind].plot(
+            da_raydec["freqs"].values,
+            da_raydec.values,
+            c=(0.6, 0.6, 0.6, 0.2),
+            # log_x=True,
+        )
+        axes[ind].plot(
+            da_raydec["freqs"].values,
+            da_raydec["median"].values,
+            c=(0, 0, 0),
+            # log_x=True,
+        )
+        # axes[ind].set_title(filename)
+        axes[ind].set_xscale("log")
+        axes[ind].set_ylabel("ellipticity")
+
+    axes[2].set_xlabel("frequency (Hz)")
+
+    plt.tight_layout()
+    plt.savefig(out_path + "categories.png")
 
 
 def plot_ellipticity_outliers():
@@ -347,7 +384,9 @@ def plot_best_ellipticity():
                 plt.savefig(out_path + station + "_" + date.replace(".nc", ".png"))
 
 
-def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results/figures/0-2-dfpar/"):
+def plot_best_csv(
+    in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results/figures/0-2-dfpar/"
+):
     stations = [
         "453024025",
         "453024237",
@@ -398,13 +437,13 @@ def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results
         ["0023-2024-06-27", "0068-2024-08-18"],
         ["0022-2024-06-28", "0039-2024-07-24", "0059-2024-08-12"],
         ["0007-2024-06-11", "0023-2024-06-27", "0065-2024-08-16"],
-        #["0004-2024-06-09", "0039-2024-07-21"],
+        # ["0004-2024-06-09", "0039-2024-07-21"],
         ["0039-2024-07-21"],
         ["0012-2024-06-17", "0020-2024-06-24"],
         ["0005-2024-06-09", "0053-2024-08-04"],
         ["0029-2024-07-04", "0065-2024-08-16"],
         ["0010-2024-06-16", "0044-2024-07-27", "0052-2024-08-03"],
-        #["0027-2024-07-01", "0040-2024-07-21", "0064-2024-08-13"],
+        # ["0027-2024-07-01", "0040-2024-07-21", "0064-2024-08-13"],
         ["0027-2024-07-01", "0064-2024-08-13"],
         ["0009-2024-06-14", "0026-2024-07-01", "0039-2024-07-21"],
         ["0002-2024-06-06", "0039-2024-07-21", "0068-2024-08-19"],
@@ -416,9 +455,9 @@ def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results
         ["0004-2024-06-09", "0018-2024-06-23", "0039-2024-07-21"],
         ["0029-2024-07-04", "0046-2024-07-28"],
         ["0007-2024-06-11", "0052-2024-08-04"],
-        ["0026-2024-07-01"]
+        ["0026-2024-07-01"],
     ]
-    '''
+    """
     peaks_dict = {
         "453024025" = {
 
@@ -452,7 +491,7 @@ def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results
         },
         "453025097",
     }
-    '''
+    """
     peaks = [
         [3, 6],
         [0, 0, 0],
@@ -466,16 +505,16 @@ def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results
         [0, 0],
         [0, 2],
         [0, 0, 0],
-        [8, 0], # didn't identify peak
+        [8, 0],  # didn't identify peak
         [4, 2, 0],
         [0, 0, 0],
-        #[0, 0],
+        # [0, 0],
         [1],
         [0, 0],
         [0, 0],
         [0, 0],
-        [0, 0, 0],        
-        #[0, 0, 0],
+        [0, 0, 0],
+        # [0, 0, 0],
         [0, 0],
         [2, 8, 11],
         [0, 0, 0],
@@ -487,9 +526,9 @@ def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results
         [0, 0, 0],
         [0, 0],
         [0, 0],
-        [0]
+        [0],
     ]
-    
+
     for s_ind in range(len(stations)):
         for d_ind in range(len(dates[s_ind])):
             station = stations[s_ind]
@@ -501,21 +540,37 @@ def plot_best_csv(in_path="./results/raydec/0-2-dfpar-csv/", out_path="./results
             plt.clf()
 
             for w in np.unique(df["wind"]):
-                plt.plot(df["freqs"][df["wind"]==w], df["ellipticity"][df["wind"]==w], color=(0.8, 0.8, 0.8, 0.2))
-            
-            all_peaks, _ = find_peaks(df["median"][df["wind"]==w], height=0.5*df["median"][df["wind"]==w].max())
-            
-            plt.plot(df["freqs"][df["wind"]==w], df["median"][df["wind"]==w])
-            
+                plt.plot(
+                    df["freqs"][df["wind"] == w],
+                    df["ellipticity"][df["wind"] == w],
+                    color=(0.8, 0.8, 0.8, 0.2),
+                )
 
-            #plt.scatter(df["freqs"][df["wind"]==w].values[all_peaks], df["median"][df["wind"]==w].values[all_peaks], color="black")
+            all_peaks, _ = find_peaks(
+                df["median"][df["wind"] == w],
+                height=0.5 * df["median"][df["wind"] == w].max(),
+            )
 
-            [plt.axvline(df["freqs"][df["wind"]==w].values[p], color="black", linestyle="dashed") for p in all_peaks]
-            plt.axvline(df["freqs"][df["wind"]==w].values[all_peaks[peak]], color="red", linestyle="dashed")
-            
+            plt.plot(df["freqs"][df["wind"] == w], df["median"][df["wind"] == w])
+
+            # plt.scatter(df["freqs"][df["wind"]==w].values[all_peaks], df["median"][df["wind"]==w].values[all_peaks], color="black")
+
+            [
+                plt.axvline(
+                    df["freqs"][df["wind"] == w].values[p],
+                    color="black",
+                    linestyle="dashed",
+                )
+                for p in all_peaks
+            ]
+            plt.axvline(
+                df["freqs"][df["wind"] == w].values[all_peaks[peak]],
+                color="red",
+                linestyle="dashed",
+            )
+
             plt.title(file_name.replace(".csv", ""))
             plt.xscale("log")
 
             plt.savefig(out_path + file_name.replace(".csv", ".png"))
-    
 

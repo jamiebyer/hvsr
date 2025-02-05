@@ -7,9 +7,10 @@ figure_layout = html.Div(
         html.Div(
             id="timeseries_div",
             children=[
-                dcc.Graph(
-                    id="timeseries_fig",
-                ),
+                # dcc.Graph(
+                #    id="timeseries_fig",
+                # ),
+                html.Img(id="timeseries_fig", style={"width": "800px"})
             ],
         ),
         html.Div(
@@ -20,11 +21,18 @@ figure_layout = html.Div(
                 ),
             ],
         ),
+        html.Div(
+            id="ellipticity_div",
+            children=[
+                # dcc.Graph(id="ellipticity_fig"),
+                html.Img(id="ellipticity_fig", style={"width": "800px"})
+            ],
+        ),
     ],
     style={
         "width": "60%",
         "display": "inline-block",
-        "vertical-align": "top",
+        "vertical-align": "middle",
     },
 )
 widget_layout = html.Div(
@@ -35,12 +43,17 @@ widget_layout = html.Div(
             options=[
                 "timeseries",
                 "temperature",
+                "ellipticity",
             ],
-            value=["timeseries"],
+            value=["ellipticity"],
         ),
         dcc.Graph(id="map", figure=plot_station_locations()),
     ],
-    style={"width": "35%", "display": "inline-block"},
+    style={
+        "width": "35%",
+        "display": "inline-block",
+        "vertical-align": "middle",
+    },
 )
 
 layout = html.Div(

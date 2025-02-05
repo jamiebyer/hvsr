@@ -5,6 +5,7 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 from processing.data_parsing import parse_xml
+import base64
 
 ##### APP PLOTTING ######
 
@@ -54,45 +55,57 @@ def plot_timeseries(xml_df, lat, lon, date):
     serial_number = selected_station["serial"].values[0]
     start_date = selected_station["start_date"].values[0].split("T")[0]
 
-    serial_folder = "./results/timeseries/clipped/" + str(serial_number) + "/"
+    # serial_folder = "./results/timeseries/clipped/" + str(serial_number) + "/"
+    serial_folder = "./results/figures/timeseries/" + str(serial_number) + "/"
     files = os.listdir(serial_folder)
     for f in files:
         if start_date in f:
-            df_timeseries = pd.read_parquet(serial_folder + f, engine="pyarrow")
+            # df_timeseries = pd.read_parquet(serial_folder + f, engine="pyarrow")
+            path = serial_folder + f
             break
 
+    """
     df_timeseries.index = pd.to_datetime(
         df_timeseries.index, format="ISO8601"  # format="%Y-%m-%d %H:%M:%S.%f%z"
     )
     timeseries_fig = px.line(
         df_timeseries,
         y=["magnitude"],
-        # color_discrete_sequence=["rgba(100, 100, 100, 0.1)"],
-        # color="spikes",
-    )
-    """
-    timeseries_fig.update_xaxes(
-        rangeslider_visible=True,
-        rangeselector=dict(
-            buttons=list(
-                [
-                    dict(count=1, label="1h", step="hour", stepmode="backward"),
-                    dict(count=2, label="2h", step="hour", stepmode="backward"),
-                    # dict(count=1, label="YTD", step="year", stepmode="todate"),
-                    dict(count=5, label="5h", step="hour", stepmode="backward"),
-                    # dict(step="all")
-                ]
-            )
-        ),
     )
     """
 
-    return timeseries_fig
+    encoded_image = base64.b64encode(open(path, "rb").read())
+    src = "data:image/png;base64,{}".format(encoded_image.decode())
+
+    return src
+
+
+# ELLIPTICITY PLOT
+def plot_ellipticity(xml_df, lat, lon, date):
+    selected_station = xml_df[
+        (xml_df["lat"] == lat)
+        & (xml_df["lon"] == lon)
+        & (xml_df["end_date"] >= date)
+        & (xml_df["start_date"] <= date)
+    ]
+
+    serial_number = selected_station["serial"].values[0]
+    start_date = selected_station["start_date"].values[0].split("T")[0]
+
+    serial_folder = "./results/figures/ellipticity/" + str(serial_number) + "/"
+    files = os.listdir(serial_folder)
+    for f in files:
+        if start_date in f:
+            path = serial_folder + f
+            break
+
+    encoded_image = base64.b64encode(open(path, "rb").read())
+    src = "data:image/png;base64,{}".format(encoded_image.decode())
+
+    return src
 
 
 # TEMPERATURE PLOT
-
-
 def plot_temperature(station):
     # *** parse time zone info ***
     df = pd.read_csv("./data/temperature/" + station + ".csv")
