@@ -68,7 +68,6 @@ def change_coords(df):
             -1 if dir in ["W", "S"] else 1
         )
         coords_list.append(coords)
-
     return coords_list
 
 
