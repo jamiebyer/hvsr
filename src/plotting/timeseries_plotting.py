@@ -4,15 +4,11 @@ import numpy as np
 import os
 import plotly.express as px
 import plotly.graph_objects as go
-from processing.timeseries_processing import label_spikes
 from utils.utils import make_output_folder
 import xarray as xr
 
 
 # TIMESERIES PLOT
-
-
-
 
 
 def plot_timeseries(station, date, in_path="./results/timeseries/"):
@@ -25,7 +21,7 @@ def plot_timeseries(station, date, in_path="./results/timeseries/"):
     df_timeseries = pd.read_parquet(dir_in, engine="pyarrow")
 
     df_timeseries.index = pd.to_datetime(
-        df_timeseries.index#, format="ISO8601"  # format="%Y-%m-%d %H:%M:%S.%f%z"
+        df_timeseries.index  # , format="ISO8601"  # format="%Y-%m-%d %H:%M:%S.%f%z"
     )
     # df_timeseries.set_index(pd.to_datetime(df_timeseries["dates"], format="mixed"))
 
@@ -52,7 +48,7 @@ def plot_timeseries(station, date, in_path="./results/timeseries/"):
 
     timeseries_fig.write_image(dir_out)
 
-    #return timeseries_fig
+    # return timeseries_fig
 
 
 def save_all_timeseries_plot():

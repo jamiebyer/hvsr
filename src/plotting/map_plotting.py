@@ -40,13 +40,13 @@ def plot_globe():
     lat_DC = 56.0027
     lon_DC = -119.7426
 
-    fig = plt.figure(figsize=(4, 4))
+    fig = plt.figure(figsize=(3, 3))
     ax = fig.add_subplot(
         projection=ccrs.NearsidePerspective(
             satellite_height=2000000.0,
             central_longitude=lon_PR,
             central_latitude=lat_PR,
-        )
+        ),
     )
 
     ax.coastlines(resolution=resol2)
@@ -61,11 +61,14 @@ def plot_globe():
         lat_PR,
         marker="*",
         color="red",
-        markerfacecolor="none",
+        markerfacecolor="red",
         markersize=8,
+        linewidth=20,
         alpha=0.7,
         transform=ccrs.Geodetic(),
+        # transform=ccrs.PlateCarree(),
     )
+
     ax.set_xlim(extent[:2])
     ax.set_ylim(extent[2:])
 
@@ -435,70 +438,3 @@ def plot_map(fig, gs, station=None):
     # Save figure
     # plt.savefig("test_map.png", dpi=300, bbox_inches="tight")
     return fig
-
-
-### WELL DATA ###
-
-
-def read_well_data():
-    """
-    X,
-    Y,
-    OBJECTID,
-    BOREHOLE_ID,
-    WELL_NAME,
-    COMMUNITY,
-    PURPOSE,
-    WELL_DEPTH_FTBGS,
-    DEPTH_TO_BEDROCK_FTBGS,
-    ESTIMATED_YIELD_GPM,
-    YIELD_METHOD,
-    STATIC_WATER_LEVEL_FTBTOC,
-    DRILL_YEAR,
-    DRILL_MONTH,
-    DRILL_DAY,
-    CASING_OUTSIDE_DIAM_IN,
-    TOP_OF_SCREEN_FTBGS,
-    BOTTOM_OF_SCREEN_FTBGS,
-    TOP_OF_CASING_ELEVATION_MASL,
-    GROUND_LEVEL_ELEVATION_MASL,
-    WELL_HEAD_STICKUP_M,
-    WELL_LOG,
-    LINK,
-    QUALITY,
-    LOCATION_SOURCE,
-    LATITUDE_DD,
-    LONGITUDE_DD
-    """
-
-    # X: longitude
-    # Y: latitude
-    # WELL_DEPTH_FTBGS:
-    # DEPTH_TO_BEDROCK_FTBGS:
-    # GROUND_LEVEL_ELEVATION_MASL:
-
-    df = pd.read_csv("./data/yukon_datasets/Water_wells.csv")
-
-    lons = df["X"]
-    lats = df["Y"]
-    well_depth = df["WELL_DEPTH_FTBGS"]
-    depth_to_bedrock = df["DEPTH_TO_BEDROCK_FTBGS"]
-    ground_level_elevation = df["GROUND_LEVEL_ELEVATION_MASL"]
-
-    depth_to_bedrock = (
-        depth_to_bedrock.str.replace(">", "").str.replace("<", "").values.astype(float)
-    )
-
-    inds = (
-        (lons > -136)
-        & (lons < -134)
-        & (lats > 60)
-        & (lats < 61)
-        & (depth_to_bedrock < 2800)
-    )
-    plt.scatter(lons[inds], lats[inds], c=depth_to_bedrock[inds])
-    plt.colorbar()
-    plt.xlim([-135.3, -134.9])
-    plt.ylim([60.65, 60.81])
-
-    plt.show()

@@ -6,13 +6,93 @@ from utils.utils import make_output_folder, create_file_list
 from dateutil import tz
 import sys
 import os
-import pyarrow.parquet as pq 
+import pyarrow.parquet as pq
+import obspy
+import pytz
+import matplotlib.pyplot as plt
+from scipy.signal import butter, lfilter, freqz, filtfilt
 
 
 ###### TIMESERIES PROCESSING ######
- 
-# public method
-def convert_miniseed_to_parquet(in_path=r"/home/gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/", out_path=r"./results/timeseries/raw/"):
+
+
+def rolling_median(data, window):
+    if len(data) < window:
+        subject = data[:]
+    else:
+        subject = data[-30:]
+    return sorted(subject)[len(subject) / 2]
+
+
+def filter_timeseries():
+    """
+    Keep in miniseed format.
+    """
+    # use df_mapping to get stations
+    # df_mapping = pd.read_csv("./data/df_mapping.csv")
+
+    in_path = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
+
+    st_E = obspy.read(in_path)
+    tr_E = st_E.traces[0]
+    st_N = obspy.read(in_path.replace(".E.", ".N."))
+    tr_N = st_N.traces[0]
+    st_Z = obspy.read(in_path.replace(".E.", ".Z."))
+    tr_Z = st_Z.traces[0]
+
+    start_date = tr_E.stats["starttime"]
+    start_date = datetime.datetime(
+        year=start_date.year, month=start_date.month, day=start_date.day
+    )
+    # Change timezone
+    utc_tz = pytz.timezone("UTC")
+    start_date = utc_tz.localize(start_date)
+    start_date = start_date.astimezone(pytz.timezone("Canada/Yukon"))
+
+    delta = tr_E.stats["delta"]
+    delta_times = np.arange(0, tr_E.stats["npts"]) * datetime.timedelta(seconds=delta)
+    times = start_date + delta_times
+
+    hours = np.array([t.hour for t in times])
+    night_inds = (hours >= 22) | (hours <= 6)
+
+    # pandas...
+    df = pd.DataFrame(
+        {
+            # "time": times,
+            "vert": tr_Z.data,
+            "north": tr_N.data,
+            "east": tr_E.data,
+        }
+    )
+
+    ft = np.fft.fftn(
+        [df["vert"][night_inds], df["east"][night_inds], df["north"][night_inds]],
+        axes=[1],
+    )
+
+    freqs = np.fft.fftfreq(len(times[night_inds]), d=delta)
+    freqs_shift = np.fft.fftshift(freqs)
+    freqs_mag = np.sqrt(
+        np.sum(np.array([freqs_shift, freqs_shift, freqs_shift]) ** 2, axis=0)
+    )
+
+    ft_filt = ft.copy()
+    ft_filt[:, freqs_mag > 2.5] = 0
+
+    ts = np.fft.ifftn(ft_filt, axes=[1])
+
+
+def select_time_slice():
+    # get fourier transform
+    # stats for spike distribution
+    pass
+
+
+def convert_miniseed_to_parquet(
+    in_path=r"/home/gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/",
+    out_path=r"./results/timeseries/raw/",
+):
     """
     Loop over raw timeseries miniseed files from smart solo geophone.
     Consolodate 3 components (vert, north, east) into one file.
@@ -97,107 +177,11 @@ def convert_miniseed_to_parquet(in_path=r"/home/gilbert_lab/Whitehorse_ANT/White
         # 212 GB for miniseed
 
 
-
-def get_timeseries_stats(df_timeseries, hourly):
-    """
-    """
-    # stats for subsection (hourly? so different times can be picked later)
-    # get stats
-    magnitude, vert, north, east = df_timeseries["magnitude"], df_timeseries["vert"], df_timeseries["north"], df_timeseries["east"]
-    if hourly:
-        hours = np.array([d.hour for d in df_timeseries["date"]])
-
-        length, full_mean, full_std, vert_mean, vert_std, north_mean, north_std, east_mean, east_std = [], [], [], [], [], [], [], [], []
-
-        for h in np.unique(hours):
-            df = df_timeseries[np.any(np.array([hours == h]), axis=0)]
-
-            length.append(len(magnitude))
-            full_mean.append(float(magnitude.mean()))
-            full_std.append(float(magnitude.std()))
-            vert_mean.append(float(vert.mean()))
-            vert_std.append(float(vert.std()))
-            north_mean.append(float(north.mean()))
-            north_std.append(float(north.std()))
-            east_mean.append(float(east.mean()))
-            east_std.append(float(east.std()))
-    else:
-        length = len(magnitude)
-        full_mean = float(magnitude.mean())
-        full_std = float(magnitude.std())
-        vert_mean = float(vert.mean())
-        vert_std = float(vert.std())
-        north_mean = float(north.mean())
-        north_std = float(north.std())
-        east_mean = float(east.mean())
-        east_std = float(east.std())
-
-    stats = {
-        "length": length,
-        "full_mean": full_mean,
-        "full_std": full_std,
-        "vert_mean": vert_mean,
-        "vert_std": vert_std,
-        "north_mean": north_mean,
-        "north_std": north_std,
-        "east_mean": east_mean,
-        "east_std": east_std,
-    }
-
-    return stats
-
-
-
-def label_spikes(df_timeseries, station, date):
-    """
-    remove spikes from timeseries data.
-
-    *** later may do LTA/STA ***
-    """
-
-    df_stats = pd.read_csv(r"./results/timeseries/stats/full_timeseries.csv", index_col=0)
-    
-    stats_string = df_stats.loc[[date],[station]].values[0][0]
-    stats_string = stats_string.replace("(", "").replace(")", "").replace("np.float32", "").replace("{", "").replace("}", "").replace("'", "").replace(" ", "")
-    
-    stats = {}
-    for s in stats_string.split(","):
-        stats[s.split(":")[0]]= float(s.split(":")[1])
-
-    if len(stats) > 0:
-        df_timeseries["spikes"] = df_timeseries["magnitude"] >= 3 * stats["full_std"]
-    else:
-        df_timeseries["spikes"] = None
-    # save labeled timeseries
-
-    return df_timeseries
-
-
-def get_time_slice(df):
-    """
-    df: timeseries df
-
-    convert to correct time zone.
-    get slice between hour limits  
-    """
-    # *** can probably make this more efficient... ***
-    #df["date"] = df["date"].apply(lambda d: d.datetime)
-    df["date"] = df["date"].apply(lambda d: pd.to_datetime(d))
-
-    df["date"] = df["date"].dt.tz_localize(datetime.timezone.utc)
-    df["date"] = df["date"].dt.tz_convert(tz.gettz("Canada/Yukon"))
-
-    hours = np.array([d.hour for d in df["date"]])
-
-    df = df[np.any(np.array([hours >= 20, hours <= 8]), axis=0)]
-    return df
-
-
 def get_clean_timeseries_slice(
-        include_outliers, 
-        in_path="./results/timeseries/raw/", 
-        out_path="./results/timeseries/clipped/"
-    ):
+    include_outliers,
+    in_path="./results/timeseries/raw/",
+    out_path="./results/timeseries/clipped/",
+):
     """
     Remove outliers/spikes and slice timeseries. Save timeseries stats.
 
@@ -209,15 +193,19 @@ def get_clean_timeseries_slice(
         timeseries_stats[station] = {}
         for file in os.listdir(in_path + station):
             date = file.replace(".parquet", "")
-            df_timeseries = pd.read_parquet(in_path + station + "/" + file, engine="pyarrow")
+            df_timeseries = pd.read_parquet(
+                in_path + station + "/" + file, engine="pyarrow"
+            )
 
             if include_outliers == False:
                 # subset timeseries so only valid points are included
                 df_timeseries = label_spikes(df_timeseries, station, date)
 
                 df_timeseries = df_timeseries[df_timeseries["spikes"] == 0]
-            
-            timeseries_stats[station][date] = get_timeseries_stats(df_timeseries, hourly=True)
+
+            timeseries_stats[station][date] = get_timeseries_stats(
+                df_timeseries, hourly=True
+            )
 
             # slice time
             df_timeseries = get_time_slice(df_timeseries)
@@ -225,15 +213,6 @@ def get_clean_timeseries_slice(
             make_output_folder(out_path + station)
             df_timeseries.to_parquet(out_path + station + "/" + date + ".parquet")
 
-    
     # save stats to df
     df_stats = pd.DataFrame(timeseries_stats)
     df_stats.to_csv("./results/timeseries/stats/timeseries_slice.csv")
-
-
-    
-
-
-
-
-
