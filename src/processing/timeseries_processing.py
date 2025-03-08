@@ -11,17 +11,58 @@ import obspy
 import pytz
 import matplotlib.pyplot as plt
 from scipy.signal import butter, lfilter, freqz, filtfilt
+from obspy.core.utcdatetime import UTCDateTime
 
 
 ###### TIMESERIES PROCESSING ######
 
 
-def rolling_median(data, window):
-    if len(data) < window:
-        subject = data[:]
-    else:
-        subject = data[-30:]
-    return sorted(subject)[len(subject) / 2]
+def slice_example_timeseries():
+    """
+    Keep in miniseed format.
+    """
+    # use df_mapping to get stations
+    # df_mapping = pd.read_csv("./data/df_mapping.csv")
+
+    in_path = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
+
+    st_E = obspy.read(in_path)
+    tr_E = st_E.traces[0]
+    st_N = obspy.read(in_path.replace(".E.", ".N."))
+    tr_N = st_N.traces[0]
+    st_Z = obspy.read(in_path.replace(".E.", ".Z."))
+    tr_Z = st_Z.traces[0]
+
+    delta = tr_E.stats["delta"]
+    start_date = tr_E.stats["starttime"]
+    start_date = datetime.datetime(
+        year=start_date.year, month=start_date.month, day=start_date.day
+    )
+    # Change timezone
+    utc_tz = pytz.timezone("UTC")
+    start_date = utc_tz.localize(start_date)
+    start_date = start_date.astimezone(pytz.timezone("Canada/Yukon"))
+
+    delta = tr_E.stats["delta"]
+    delta_times = np.arange(0, tr_E.stats["npts"]) * datetime.timedelta(seconds=delta)
+    times = start_date + delta_times
+
+    hours = np.array([t.hour for t in times])
+    night_inds = (hours >= 22) | (hours <= 6)
+
+    ts = np.array([tr_Z.data, tr_N.data, tr_E.data])
+
+    st_E.slice(
+        UTCDateTime(times[night_inds][0]), UTCDateTime(times[night_inds][-1])
+    ).write("./results/timeseries/example_timeseries_slice_E.miniseed", format="MSEED")
+    st_N.slice(
+        UTCDateTime(times[night_inds][0]), UTCDateTime(times[night_inds][-1])
+    ).write("./results/timeseries/example_timeseries_slice_N.miniseed", format="MSEED")
+    st_Z.slice(
+        UTCDateTime(times[night_inds][0]), UTCDateTime(times[night_inds][-1])
+    ).write("./results/timeseries/example_timeseries_slice_Z.miniseed", format="MSEED")
+
+    return times, ts, night_inds, delta
 
 
 def filter_timeseries():
@@ -40,6 +81,7 @@ def filter_timeseries():
     st_Z = obspy.read(in_path.replace(".E.", ".Z."))
     tr_Z = st_Z.traces[0]
 
+    delta = tr_E.stats["delta"]
     start_date = tr_E.stats["starttime"]
     start_date = datetime.datetime(
         year=start_date.year, month=start_date.month, day=start_date.day
@@ -56,18 +98,10 @@ def filter_timeseries():
     hours = np.array([t.hour for t in times])
     night_inds = (hours >= 22) | (hours <= 6)
 
-    # pandas...
-    df = pd.DataFrame(
-        {
-            # "time": times,
-            "vert": tr_Z.data,
-            "north": tr_N.data,
-            "east": tr_E.data,
-        }
-    )
+    ts = np.array([tr_Z.data, tr_N.data, tr_E.data])
 
     ft = np.fft.fftn(
-        [df["vert"][night_inds], df["east"][night_inds], df["north"][night_inds]],
+        ts[:, night_inds],
         axes=[1],
     )
 
@@ -80,13 +114,9 @@ def filter_timeseries():
     ft_filt = ft.copy()
     ft_filt[:, freqs_mag > 2.5] = 0
 
-    ts = np.fft.ifftn(ft_filt, axes=[1])
+    ts_filt = np.fft.ifftn(ft_filt, axes=[1]).real
 
-
-def select_time_slice():
-    # get fourier transform
-    # stats for spike distribution
-    pass
+    return times, ts, ts_filt, night_inds, delta
 
 
 def convert_miniseed_to_parquet(
@@ -104,7 +134,7 @@ def convert_miniseed_to_parquet(
     make_output_folder(out_path)
     full_timeseries_stats = {}
     for file_name in os.listdir(in_path):
-        print(file_name)
+
         if ".E." not in file_name:
             continue
         # read in miniseed
