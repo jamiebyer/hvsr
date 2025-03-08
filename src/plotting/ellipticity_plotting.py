@@ -152,7 +152,7 @@ def plot_ellipticity(
         color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
         log_x=True,
     )
-    raydec_fig.update_layout(title="453024237_0012-2024-06-16")
+    raydec_fig.update_layout(title=str(station) + ", " + str(date))
     make_output_folder(out_path + str(station) + "/")
     raydec_fig.write_image(out_path + station + "/" + date + ".png")
 

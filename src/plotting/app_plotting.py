@@ -11,8 +11,6 @@ import base64
 
 
 # MAP PLOT
-
-
 def plot_station_locations():
     df = pd.read_csv("./results/xml_info.csv", index_col=0)
 
