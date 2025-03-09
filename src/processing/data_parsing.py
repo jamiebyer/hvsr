@@ -8,6 +8,7 @@ import sys
 from utils.utils import is_int, is_date, is_float
 import matplotlib.pyplot as plt
 import shutil
+import string
 
 
 ####### PARSING XML ######
@@ -250,12 +251,29 @@ def get_station_file_mapping():
     out_df.loc[:, "GNSS_longitude"] = change_coords(out_df.loc[:, "GNSS_longitude"])
 
     # rounding nearby stations
-    out_df.loc[:, "GNSS_latitude"] = out_df.loc[:, "GNSS_latitude"].astype(float).round(3)
-    out_df.loc[:, "GNSS_longitude"] = out_df.loc[:, "GNSS_longitude"].astype(float).round(3)
+    out_df.loc[:, "GNSS_latitude_rounded"] = out_df.loc[:, "GNSS_latitude"].astype(float).round(3)
+    out_df.loc[:, "GNSS_longitude_rounded"] = out_df.loc[:, "GNSS_longitude"].astype(float).round(3)
     #out_df.loc[:, "GNSS_elevation"] = out_df.loc[:, "GNSS_elevation"].round(3)
     
-    out_df.loc[:, "site"] = (out_df.groupby(["GNSS_latitude", "GNSS_longitude"]).ngroup()+1).values
+    out_df.loc[:, "site"] = (out_df.groupby(["GNSS_latitude_rounded", "GNSS_longitude_rounded"]).ngroup()+1).values
+    out_df.reset_index(inplace=True, drop=True)
     
+    files = np.array(os.listdir(in_dir))
+    values, counts = np.unique(out_df["site"], return_counts=True)
+    for ind, v in enumerate(values):
+        df_inds = out_df.index[out_df["site"] == v].values
+        #print(df_inds)
+        #print(out_df)
+
+        site_name = str(v).rjust(2,"0")
+
+        for c in range(counts[ind]):
+            #site_path = str(v) + "." + str(c)
+            if c == 0:
+                suffix = ""
+            else:
+                suffix = string.ascii_uppercase[c]
+            out_df.loc[df_inds[c], "site"] = site_name + suffix
 
     # map files to recordings
     # Whitehorse_ANT/453024025.0001.2024.06.06.18.04.52.000.E.miniseed
@@ -286,25 +304,50 @@ def get_station_file_mapping():
 
 
     
-def organize_station_files():
+def organize_station_files():    
+    mapping_dir = "./data/df_mapping.csv"
+    df_mapping = pd.read_csv(mapping_dir)
+    df_mapping["Start_time (UTC)"] = pd.to_datetime(df_mapping["Start_time (UTC)"])
+    df_mapping["End_time (UTC)"] = pd.to_datetime(df_mapping["End_time (UTC)"])
+
+    in_dir = r"./../../gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/"
     # create folder for site
     out_dir = "./results/timeseries/sorted/"
-    os.mkdir(out_dir + site_ind)
+    if not os.path.isdir(out_dir):
+        os.mkdir(out_dir)
 
-    dates = pd.date_range(start=start_date, end=end_date, inclusive="both")
-
-    p = []
-    for d in dates:
-        # get filename that starts with serial and ends with date, all directions
-        date = "2024."+ str(d.month).rjust(2,"0") + "." + str(d.day).rjust(2,"0")
-        file_inds = file_inds & [date in f for f in files]
+    files = np.array(os.listdir(in_dir))
+    values, counts = np.unique(df_mapping["site"], return_counts=True)
+    for ind, v in enumerate(values):
+        #if v <= 50:
+        #    continue
+        site_list = df_mapping[df_mapping["site"] == v]
+        site_name = str(v).rjust(2,"0")
+        for c in range(counts[ind]):
+            site_path = str(v) + "." + str(c)
+            if len(site_list) == 1:
+                suffix = ""
+            else:
+                suffix = string.ascii_uppercase[c]
+            site_path = out_dir + site_name + suffix + "/"
         
-        # move 3 components to folder
-        [p.append(in_dir + f) for f in files[file_inds]]
-        # [shutil.copyfile(in_dir + f, out_dir + f) for f in files_subset.values]
-    
-    paths.append(p)
+            if not os.path.isdir(site_path):
+                os.mkdir(site_path)
 
+            site = site_list.iloc[c]
+            serial = site["Serial"]
+            site_inds = np.char.startswith(files, "4530" + str(serial))
+
+            dates = pd.date_range(start=site["Start_time (UTC)"], end=site["End_time (UTC)"], inclusive="both")
+            for d in dates:            
+                # get filename that starts with serial and ends with date, all directions
+                date = "2024."+ str(d.month).rjust(2,"0") + "." + str(d.day).rjust(2,"0")
+                file_inds = site_inds & [date in f for f in files]
+                for f in files[file_inds]:
+                    # move 3 components to folder
+                    #if not os.path.exists(site_path + f):
+                    coord = f.split(".000.")[1]
+                    shutil.copyfile(in_dir + f, site_path + site_name + suffix + "_" + date.replace(".", "-") + "." + coord)
 
 
 def plot_station_schedule():
@@ -316,14 +359,24 @@ def plot_station_schedule():
     df_mapping["Start_time (UTC)"] = pd.to_datetime(df_mapping["Start_time (UTC)"])
     df_mapping["End_time (UTC)"] = pd.to_datetime(df_mapping["End_time (UTC)"])
 
-    start_date = df_mapping["Start_time (UTC)"]
-
-    [plt.axhline(y, c="grey", alpha=0.2) for y in np.arange(70)]
+    #[plt.axhline(y, c="grey", alpha=0.2) for y in np.arange(70)]
     for ind, recording in df_mapping.iterrows():
         dates = pd.date_range(start=recording["Start_time (UTC)"], end=recording["End_time (UTC)"], inclusive="both")
         plt.plot(dates, len(dates)*[recording["site"]], linestyle = 'solid', color="blue")
     
     #plt.legend()
+    plt.xlabel("date")
+    plt.ylabel("site")
+    plt.yticks(np.arange(0, 71, int(70/14)))
+    plt.ylim([0, 70])
+
+    xticks=pd.date_range(start=df_mapping["Start_time (UTC)"].min(), end=df_mapping["End_time (UTC)"].max(), periods=15, inclusive="both")
+
+    #print(yticks.values)
+    plt.xticks(xticks.values)
+    
+    plt.grid(True, color="grey", linestyle="-", alpha=0.2)
+
     plt.savefig("./results/sites_timeseries.png")
             
     df_mapping = df_mapping.drop_duplicates(subset=["site"])
@@ -338,8 +391,8 @@ def plot_station_schedule():
 
     plt.xlim([-135.3, -134.9])
     plt.ylim([60.635, 60.84])
-    plt.xlabel("date")
-    plt.ylabel("site")
+    plt.xlabel("longitude")
+    plt.ylabel("latitude")
 
     plt.savefig("./results/sites.png")
 
