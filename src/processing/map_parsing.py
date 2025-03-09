@@ -1,0 +1,549 @@
+import geopandas as gpd
+import matplotlib.pyplot as plt
+from osgeo import ogr
+import fiona
+import zipfile
+
+
+def read_drillhole_files():
+    dir_path = "./data/yukon_datasets/DrillHoles/DrillholeLocations/"
+
+    """
+    ['DRILLHOLE_ID', 'PROPERTY', 'DDH_NUMBER', 'ZONE_DESC', 'YEAR_DRILLED',
+       'ELEVATION_M', 'AZIMUTH', 'DIP', 'TOTAL_LENGTH_M',
+       'CORE_CONDITION_DESC', 'TOTAL_BOXES', 'COMPLETE_HOLE', 'CORE_SIZE_DESC',
+       'PUBLICLY_AVAILABLE', 'MINFILE_NUMBER', 'MINFILE_NAME',
+       'LINK_TO_MINFILE', 'COMMODITIES', 'REFERENCES', 'CORE_OWNER',
+       'END_OF_HOLE_M', 'SUBMITTED_BY', 'PUBLIC_DATE', 'LATITUDE_DD',
+       'LONGITUDE_DD', 'DEPOSIT_MATERIAL', 'DEPOSIT_TYPE_1', 'DEPOSIT_TYPE_2',
+       'DEPOSIT_TYPE_3', 'DEPOSIT_TYPE_4', 'DEPOSIT_TYPE_LABEL',
+       'LINK_TO_DATA', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Drillhole_Locations_250k.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['ID', 'PROPERTY', 'DDH_NUMBER', 'ZONE_DESC', 'YEAR_DRILL', 'ELEV_M',
+       'AZIMUTH', 'DIP', 'TOT_LEN_M', 'CORE_CON', 'TOT_BOXES', 'COMPLETE',
+       'CORE_SIZE', 'PUBLIC', 'MINFILENUM', 'MINFILE', 'MINF_LINK',
+       'COMMODITIE', 'REFERENCES', 'CORE_OWNER', 'END_HOLE_M', 'SUBMIT_BY',
+       'PUBLIC_DAT', 'LATI_DD', 'LONG_DD', 'DEPOSIT_MA', 'DEP_TYPE_1',
+       'DEP_TYPE_2', 'DEP_TYPE_3', 'DEP_TYPE_4', 'D_TYP_LABL', 'LINK_DATA',
+       'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Drillhole_Locations_250k.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Drillhole_Locations_250k.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_geotechnical_files():
+    dir_path = "./data/yukon_datasets/DrillHoles/GeotechnicalBoreholes/"
+
+    """
+    ['SITE_ID', 'PROJECT_NAME', 'PROJECT_NUMBER', 'LOCATION_DESC',
+       'HOLE_DEPTH', 'CONSULTANT', 'CONTRACTOR', 'CLIENT', 'START_DATE',
+       'END_DATE', 'LINK_TO_DATA', 'LATITUDE_DD', 'LONGITUDE_DD', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Geotechnical_Boreholes.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['SITE_ID', 'NAME', 'PROJECTNUM', 'LOCATION', 'HOLE_DEPTH', 'CONSULTANT',
+       'CONTRACTOR', 'CLIENT', 'START_DATE', 'END_DATE', 'DATA_LINK',
+       'LATITUDE', 'LONGITUDE', 'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Geotechnical_Boreholes.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Geotechnical_Boreholes.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_geothermal_boreholes_files():
+    dir_path = "./data/yukon_datasets/DrillHoles/GeothermalBoreholes/"
+
+    """
+    ['NAME', 'LOCATION', 'PURPOSE', 'STATUS', 'SCREEN_INT', 'STATIC_WL',
+       'CAPACITY', 'DISCHARGE', 'TEMP_WATER', 'DRILL_DEPTH', 'BROCK_DEPTH',
+       'TEMP_MIN', 'TEMP_MAX', 'INT_TOP', 'INT_BOTTOM', 'INT_THERM',
+       'BOTTOM_UNK', 'THERM_GRAD', 'TG_CONFIDENCE', 'TG_METHOD',
+       'TG_CORRECTION', 'TG_DATE', 'TG_LOG_NUM', 'THERM_COND', 'HEAT_FLOW',
+       'HF_CORRECTION', 'GT_SILICA', 'GT_ALKALI', 'PH', 'CONDUCTIVITY',
+       'HARDNESS', 'CA_MG_L', 'MG_MG_L', 'NA_MG_L', 'K_MG_L', 'HCO3_MG_L',
+       'SO4_MG_L', 'CO3_MG_L', 'SIO2_MG_L', 'CL_MG_L', 'F_MG_L', 'E_ISO_18O',
+       'E_ISO_2H', 'RAD_ISO_3H', 'GAS_NOBLE', 'GAS_DISS', 'GAS_EMITTED',
+       'REFERENCE', 'REF_LINK', 'COMMENTS', 'ELEVATION', 'LOC_SOURCE',
+       'LATITUDE_DD', 'LONGITUDE_DD', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Geothermal_Boreholes.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['NAME', 'LOCATION', 'PURPOSE', 'STATUS', 'SCREEN_INT', 'STATIC_WL',
+       'CAPACITY', 'DISCHARGE', 'TEMP_WATER', 'DRILLDEPTH', 'BROCKDEPTH',
+       'TEMP_MIN', 'TEMP_MAX', 'INT_TOP', 'INT_BOTTOM', 'INT_THERM',
+       'BOTTOM_UNK', 'THERM_GRAD', 'TG_CNFDNCE', 'TG_METHOD', 'TG_CORRCTN',
+       'TG_DATE', 'TG_LOG_NUM', 'THERM_COND', 'HEAT_FLOW', 'HF_CORRCTN',
+       'GT_SILICA', 'GT_ALKALI', 'PH', 'CONDCTVTY', 'HARDNESS', 'CA_MG_L',
+       'MG_MG_L', 'NA_MG_L', 'K_MG_L', 'HCO3_MG_L', 'SO4_MG_L', 'CO3_MG_L',
+       'SIO2_MG_L', 'CL_MG_L', 'F_MG_L', 'E_ISO_18O', 'E_ISO_2H', 'RAD_ISO_3H',
+       'GAS_NOBLE', 'GAS_DISS', 'GAS_EMITTD', 'REFERENCE', 'REF_LINK',
+       'COMMENTS', 'ELEVATION', 'L_SOURCE', 'LAT_DD', 'LONG_DD', 'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Geothermal_Boreholes.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Geothermal_Boreholes.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_water_wells_csv_files():
+    dir_path = "./data/yukon_datasets/DrillHoles/WaterWells/"
+    df = pd.read_csv(dir_path + "Waterwells.csv")
+
+
+def read_water_wells_files():
+    dir_path = "./data/yukon_datasets/DrillHoles/WaterWells/"
+
+    """
+    ['BOREHOLE_ID', 'WELL_NAME', 'COMMUNITY', 'PURPOSE', 'WELL_DEPTH_FTBGS',
+       'DEPTH_TO_BEDROCK_FTBGS', 'ESTIMATED_YIELD_GPM', 'YIELD_METHOD',
+       'STATIC_WATER_LEVEL_FTBTOC', 'DRILL_YEAR', 'DRILL_MONTH', 'DRILL_DAY',
+       'CASING_OUTSIDE_DIAM_IN', 'TOP_OF_SCREEN_FTBGS',
+       'BOTTOM_OF_SCREEN_FTBGS', 'TOP_OF_CASING_ELEVATION_MASL',
+       'GROUND_LEVEL_ELEVATION_MASL', 'WELL_HEAD_STICKUP_M', 'WELL_LOG',
+       'LINK', 'QUALITY', 'LOCATION_SOURCE', 'LATITUDE_DD', 'LONGITUDE_DD',
+       'geometry']
+    """
+    gdb_file = gpd.read_file(dir_path + "Water_Wells.gdb", driver="OpenFileGDB")
+
+    """
+    ['BOREHOLEID', 'WELL_NAME', 'COMMUNITY', 'PURPOSE', 'WELL_DEPTH',
+       'DEPBEDROCK', 'EST_YIELD', 'YIELD_METH', 'STATWATER', 'DRILL_YEAR',
+       'DRILLMONTH', 'DRILL_DAY', 'CASINGDIAM', 'TOP_SCREEN', 'BOT_SCREEN',
+       'CAS_ELEV', 'GROUNDELEV', 'HEAD_STICK', 'WELL_LOG', 'LINK', 'QUALITY',
+       'LAT_DD', 'LONG_DD', 'geometry']
+    """
+    shp_file = gpd.read_file(dir_path + "Water_Wells.shp", driver="ESRI Shapefile")
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Water_Wells.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_bedrock_geology_files():
+    dir_path = "./data/yukon_datasets/Geology/BedrockGeology/"
+
+    """
+    ['UNIT_1M', 'UNIT_250K', 'UNIT_ORIG', 'ASSEMBLAGE', 'SUPERGROUP',
+       'GP_SUITE', 'FORMATION', 'MEMBER', 'NAME', 'TERRANE', 'TERR_LABEL',
+       'TECT_ELEM', 'ERA_MAX', 'PERIOD_MAX', 'EPOCH_MAX', 'STAGE_MAX',
+       'AGE_MAX_MA', 'ERA_MIN', 'PERIOD_MIN', 'EPOCH_MIN', 'STAGE_MIN',
+       'AGE_MIN_MA', 'ROCK_CLASS', 'ROCK_SUBCL', 'SHORT_DESC', 'ROCK_MAJOR',
+       'ROCK_MINOR', 'ROCK_NOTES', 'LABEL_250K', 'LABEL_1M', 'COMMENTS', 'RED',
+       'GREEN', 'BLUE', 'Shape_Length', 'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(dir_path + "Bedrock_Geology.gdb", driver="OpenFileGDB")
+
+    """
+    ['UNIT_1M', 'UNIT_250K', 'UNIT_ORIG', 'ASSEMBLAGE', 'SUPERGROUP',
+       'GP_SUITE', 'FORMATION', 'MEMBER', 'NAME', 'TERRANE', 'TERR_LABEL',
+       'TECT_ELEM', 'ERA_MAX', 'PERIOD_MAX', 'EPOCH_MAX', 'STAGE_MAX',
+       'AGE_MAX_MA', 'ERA_MIN', 'PERIOD_MIN', 'EPOCH_MIN', 'STAGE_MIN',
+       'AGE_MIN_MA', 'ROCK_CLASS', 'ROCK_SUBCL', 'SHORT_DESC', 'ROCK_MAJOR',
+       'ROCK_MINOR', 'ROCK_NOTES', 'LABEL_250K', 'LABEL_1M', 'COMMENTS', 'RED',
+       'GREEN', 'BLUE', 'geometry']
+    """
+    shp_file = gpd.read_file(dir_path + "Bedrock_Geology.shp", driver="ESRI Shapefile")
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Bedrock_Geology.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_bedrock_map_index_files():
+    dir_path = "./data/yukon_datasets/Geology/BedrockGeology/"
+
+    """
+    ['MAP_NAME', 'NTS_MAP', 'REFERENCE', 'PUBLICATION_YEAR', 'MAP_YEAR',
+       'PUBLICATION_SCALE', 'MAP_SCALE', 'AGENCY', 'DATA_SOURCE', 'CONFIDENCE',
+       'AREA_KM', 'Shape_Length', 'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(dir_path + "Bedrock_Map_Index.gdb", driver="OpenFileGDB")
+
+    """
+    ['MAP_NAME', 'NTS_MAP', 'REFERENCE', 'PUB_YEAR', 'MAP_YEAR', 'PUB_SCALE',
+       'MAP_SCALE', 'AGENCY', 'DATASOURCE', 'CONFIDENCE', 'AREA_KM',
+       'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Bedrock_Map_Index.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Bedrock_Map_Index.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_yukon_bedrock_geology_files():
+    dir_path = "./data/yukon_datasets/Geology/BedrockGeology/"
+
+    """
+    ['Source', 'NTS_MAPS', 'PUB_SCALE', 'MAP_NAME', 'Plot', 'Source_type',
+       'PUB_YEAR', 'AGENCY', 'MAP_SCALE', 'CONFIDENCE', 'MAP_YEAR', 'Area',
+       'Shape_Length', 'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path
+        + "Yukon_Bedrock_Geology_Complete.fgdb/Yukon_Bedrock_Geology_June_2023.gdb",
+        driver="OpenFileGDB",
+    )
+
+    """
+    ['UNIT_1M', 'UNIT_250K', 'UNIT_ORIG', 'ASSEMBLAGE', 'SUPERGROUP',
+       'GP_SUITE', 'FORMATION', 'MEMBER', 'NAME', 'TERRANE', 'TERR_LABEL',
+       'TECT_ELEM', 'ERA_MAX', 'PERIOD_MAX', 'EPOCH_MAX', 'STAGE_MAX',
+       'AGE_MAX_MA', 'ERA_MIN', 'PERIOD_MIN', 'EPOCH_MIN', 'STAGE_MIN',
+       'AGE_MIN_MA', 'ROCK_CLASS', 'ROCK_SUBCL', 'SHORT_DESC', 'ROCK_MAJOR',
+       'ROCK_MINOR', 'ROCK_NOTES', 'LABEL_250K', 'LABEL_1M', 'COMMENTS', 'RED',
+       'GREEN', 'BLUE', 'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Yukon_Bedrock_Geology_Complete.shp/Bedrock_Geology.shp",
+        driver="ESRI Shapefile",
+    )
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+
+
+def read_faults_files():
+    dir_path = "./data/yukon_datasets/Geology/Faults/"
+
+    """
+    ['FEATURE', 'TYPE', 'SUBTYPE', 'CONFIDENCE', 'NAME', 'REFERENCE',
+       'SCALE', 'SYMBOL_DIR', 'COMMENTS', 'Shape_Length', 'geometry']
+    """
+    gdb_file = gpd.read_file(dir_path + "Faults.gdb", driver="OpenFileGDB")
+
+    """
+    ['FEATURE', 'TYPE', 'SUBTYPE', 'CONFIDENCE', 'NAME', 'REFERENCE',
+       'SCALE', 'SYMBOL_DIR', 'COMMENTS', 'geometry']
+    """
+    shp_file = gpd.read_file(dir_path + "Faults.shp", driver="ESRI Shapefile")
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Faults.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_sedimentary_basin_files():
+    dir_path = "./data/yukon_datasets/Geology/SedimentaryBasins/"
+
+    """
+    ['SEDIMENT_BASIN_NAME', 'SEDIMENT_BASIN_ID', 'BASIN_LOCATION',
+       'DESCRIPTION', 'REGION_NAME', 'AREA_KILOMETRES', 'AREA_ACRES',
+       'AREA_HECTARES', 'Shape_Length', 'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Sedimentary_Basins_250k.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['BASIN_ID', 'BASIN_NAME', 'LOCATION', 'DESC_', 'REGION', 'AREA_KM',
+       'AREA_ACRES', 'AREA_HA', 'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Sedimentary_Basins_250k.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Sedimentary_Basins_250k.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_sedimentary_extents_files():
+    dir_path = "./data/yukon_datasets/Geology/SedimentaryBasins/"
+
+    """
+    ['REGION_NAME', 'AREA_KILOMETRES', 'AREA_ACRES', 'AREA_HECTARES',
+       'Shape_Length', 'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Sedimentary_Extents_1M.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['REG_NAME', 'AREA_KM', 'AREA_ACRES', 'AREA_HA', 'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Sedimentary_Extents_1M.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Sedimentary_Extents_1M.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_surficial_geology_files():
+    dir_path = "./data/yukon_datasets/Geology/SurficialGeology/"
+
+    """
+    ['REGION_NAME', 'AREA_KILOMETRES', 'AREA_ACRES', 'AREA_HECTARES',
+       'Shape_Length', 'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Surficial_Geology_Complete.fgbd/YukonSurficialGeology_2023_CSW.gdb",
+        driver="OpenFileGDB",
+    )
+
+    """
+    ['REG_NAME', 'AREA_KM', 'AREA_ACRES', 'AREA_HA', 'geometry']
+    """
+    # shp_file = gpd.read_file(
+    #    dir_path + "Surficial_Geology_Complete.shp", driver="ESRI Shapefile"
+    # )
+
+    print(gdb_file.columns)
+    # print(shp_file.columns)
+
+
+def read_terranes_files():
+    dir_path = "./data/yukon_datasets/Geology/Terranes/"
+
+    """
+    ['TERRANE', 'T_GROUP', 'AFFINITY', 'T_NAME', 'SUBTERRANE', 'T_GP_SIMPLE',
+       'TECT_SETTING', 'AGE_RANGE', 'DESCRIPTION', 'Shape_Length',
+       'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(dir_path + "Terranes.gdb", driver="OpenFileGDB")
+
+    """
+    ['TERRANE', 'T_GROUP', 'AFFINITY', 'T_NAME', 'SUBTERRANE', 'TGP_SIMPLE',
+       'TECT_SET', 'AGE_RANGE', 'DESCRIPN', 'geometry']
+    """
+    shp_file = gpd.read_file(dir_path + "Terranes.shp", driver="ESRI Shapefile")
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Terranes.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_curie_depth_files():
+    # read .tif
+    # read xlsx
+    pass
+
+
+def read_geothermal_dataset_files():
+    # read .tif file
+
+    dir_path = "./data/yukon_datasets/Geothermal/GeothermalDataset/"
+
+    """
+    ['CPD__km_', 'Interval', 'Shape_Length', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "YGS_GeothermalCompilation_20231106.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['NAME', 'LATITUDE_D', 'LONGITUDE_', 'ELEVATION', 'LOC_SOURCE',
+       'LOCATION', 'PURPOSE', 'STATUS', 'SCREEN_INT', 'STATIC_WL', 'CAPACITY',
+       'DISCHARGE', 'TEMP_WATER', 'DRILL_DEPT', 'BROCK_DEPT', 'TEMP_MIN',
+       'TEMP_MAX', 'INT_TOP', 'INT_BOTTOM', 'INT_THERM', 'BOTTOM_UNK',
+       'THERM_GRAD', 'TG_CONFIDE', 'TG_CORRECT', 'TG_METHOD', 'TG_DATE',
+       'TG_LOG_NUM', 'THERM_COND', 'HEAT_FLOW', 'HF_CORRECT', 'GT_SILICA',
+       'GT_ALKALI', 'PH', 'CONDUCTIVI', 'HARDNESS', 'CA_MG_L', 'MG_MG_L',
+       'NA_MG_L', 'K_MG_L', 'HCO3_MG_L', 'SO4_MG_L', 'CO3_MG_L', 'SIO2_MG_L',
+       'CL_MG_L', 'F_MG_L', 'E_ISO_18O', 'E_ISO_2H', 'RAD_ISO_3H', 'GAS_NOBLE',
+       'GAS_DISS', 'GAS_EMITTE', 'REFERENCE', 'REF_LINK', 'COMMENTS', 'PUBLIC',
+       'created_da', 'last_edite', 'last_edi_1', 'geometry']
+    """
+    shp_file = gpd.read_file(dir_path + "Shapefiles", driver="ESRI Shapefile")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+
+
+def read_permafrost_point_files():
+    dir_path = "./data/yukon_datasets/Geothermal/Permafrost/"
+
+    """
+    ['TITLE', 'AUTHOR', 'YEAR', 'REPORT_TYPE', 'DESCRIPTION', 'REPORT_LINK',
+       'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Permafrost_Reports_Point.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['TITLE', 'AUTHOR', 'YEAR', 'REPORTTYPE', 'DESC_', 'REPORTLINK',
+       'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Permafrost_Reports_Point.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Permafrost_Reports_Point.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+def read_permafrost_polygon_files():    
+    dir_path = "./data/yukon_datasets/Geothermal/Permafrost/"
+
+    """
+    ['TITLE', 'AUTHOR', 'YEAR', 'REPORT_TYPE', 'DESCRIPTION', 'REPORT_LINK',
+       'Shape_Length', 'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Permafrost_Reports_Polygon.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['TITLE', 'AUTHOR', 'YEAR', 'REPORTTYPE', 'DESC_', 'REPORTLINK',
+       'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Permafrost_Reports_Polygon.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(
+        dir_path + "Permafrost_Reports_Polygon.kmz", driver="libkml"
+    )
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)
+
+
+
+def read_permafrost_files()
+    # read .tif files
+    # read csv files
+    pass
+
+
+def read_radiogenic_heat_files():
+    dir_path = "./data/yukon_datasets/Geothermal/RadiogenicHeat/"
+
+    """
+    ['TITLE', 'AUTHOR', 'YEAR', 'REPORT_TYPE', 'DESCRIPTION', 'REPORT_LINK',
+       'Shape_Length', 'Shape_Area', 'geometry']
+    """
+    gdb_file = gpd.read_file(
+        dir_path + "Geothermal_Radiogenic_Heat_Production.gdb", driver="OpenFileGDB"
+    )
+
+    """
+    ['TITLE', 'AUTHOR', 'YEAR', 'REPORTTYPE', 'DESC_', 'REPORTLINK',
+       'geometry']
+    """
+    shp_file = gpd.read_file(
+        dir_path + "Geothermal_Radiogenic_Heat_Production.shp", driver="ESRI Shapefile"
+    )
+
+    """
+    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
+       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
+       'icon', 'snippet', 'geometry']
+    """
+    kml_file = gpd.read_file(dir_path + "Geothermal_Radiogenic_Heat_Production.kmz", driver="libkml")
+
+    print(gdb_file.columns)
+    print(shp_file.columns)
+    print(kml_file.columns)

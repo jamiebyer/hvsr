@@ -1,8 +1,14 @@
 data/*
 results/*
+Miniforge3-Linux-x86_64.sh
+**/__pycache__
 src/__pycache__/*
 src/processing/__pycache__/*
 src/plotting/__pycache__/*
-src/utils/__pycache__/*
+src/plotting/__pycache__/map_plotting.cpython-312.pyc
+src/plotting/__pycache__/ellipticity_plotting.cpython-312.pyc
+src/utils/__pycache__/utils.cpython-312.pyc
+src/app/__pycache__/
 Miniforge3-Linux-x86_64.sh
 report/*
+tests/test_data copy.parquet
