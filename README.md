@@ -12,6 +12,7 @@
 - validate curve stability
 - spike removal: STA LTA
 - temporal ellipticity
+- hvsr for each component
 
 ---
 ## OTHER DATA

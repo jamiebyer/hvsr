@@ -159,30 +159,37 @@ def plot_ellipticity(
 def plot_ellipticity_examples(out_path="./results/figures/ellipticity/"):
     in_path = "./results/raydec/examples/"
 
-    fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True)
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True, figsize=(6, 8))
     axes = [ax1, ax2, ax3]
 
-    for ind, filename in enumerate(os.listdir(in_path)):
-        da_raydec = xr.open_dataarray(in_path + filename)
+    examples = ["0069-2024-08-18", "0012-2024-06-16", "0006-2024-06-10"]
+
+    print(os.listdir(in_path))
+    for ind, filename in enumerate(examples):
+        print(filename)
+        da_raydec = xr.open_dataarray(in_path + filename + ".parquet.nc")
         da_raydec = da_raydec.dropna(dim="freqs")
-        da_raydec["median"] = da_raydec.median(dim="wind")
-        # print(da_raydec)
-        # break
+        
+        inds = np.squeeze(np.array([da_raydec["QC_2"] == False]).T)
+        
         axes[ind].plot(
             da_raydec["freqs"].values,
-            da_raydec.values,
-            c=(0.6, 0.6, 0.6, 0.2),
+            da_raydec.values[:, inds],
+            c=(0.6, 0.6, 0.6, 0.05),
             # log_x=True,
         )
         axes[ind].plot(
             da_raydec["freqs"].values,
-            da_raydec["median"].values,
+            da_raydec.values[:, inds].mean(axis=1),
             c=(0, 0, 0),
             # log_x=True,
         )
         # axes[ind].set_title(filename)
         axes[ind].set_xscale("log")
         axes[ind].set_ylabel("ellipticity")
+
+        axes[ind].set_xlim([0.1, 20])
+        axes[ind].set_ylim([0, 10])
 
     axes[2].set_xlabel("frequency (Hz)")
 

@@ -274,10 +274,10 @@ def plot_f_0_map(in_path="./results/raydec/csv/0-2-dfpar/"):
 
 
 def plot_stations_map():
-    stations_df = pd.read_csv("./data/spreadsheets/stations_coords.csv")
-    lats, lons = change_coords(stations_df["GNSS_latitude"].values), change_coords(
-        stations_df["GNSS_longitude"].values
-    )
+    stations_df = pd.read_csv("./results/site/df_mapping.csv")
+    
+    stations_df = stations_df.drop_duplicates("site")
+    lats, lons = stations_df["GNSS_latitude_rounded"], stations_df["GNSS_longitude_rounded"]
 
     # Google image tiling
     request1 = cimgt.GoogleTiles(style="satellite")
@@ -300,7 +300,7 @@ def plot_stations_map():
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(projection=proj)
 
-    ax.set_extent([-135.3, -134.9, 60.65, 60.81])
+    ax.set_extent([-135.25, -134.9, 60.65, 60.81])
 
     # Add background
     ax.add_image(request2, 13)
@@ -336,9 +336,15 @@ def plot_stations_map():
         # label=names,
     )
 
+    for site in [5, 64, 17]:
+        lat, lon = stations_df[stations_df["site"] == site]["GNSS_latitude_rounded"].values[0], stations_df[stations_df["site"] == site]["GNSS_longitude_rounded"].values[0]
+        print(lat, lon)
+        ax.scatter(lon, lat, color='r', marker="o", s=200, facecolors='none', transform=ccrs.PlateCarree())
+
     # Add scalebar
     scale_bar(ax, proj, 4)
-
+    
+    """
     # add well locations
     df = pd.read_csv("./data/yukon_datasets/Water_wells.csv")
 
@@ -346,10 +352,11 @@ def plot_stations_map():
     lats = df["Y"]
 
     ax.scatter(lons, lats, c="red")
+    """
 
     # Save figure
     plt.savefig(
-        "./results/figures/site/stations_wells_map.png", dpi=300, bbox_inches="tight"
+        "./results/figures/site/stations_map.png", dpi=300, bbox_inches="tight"
     )
 
 

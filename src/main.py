@@ -36,8 +36,8 @@ if __name__ == "__main__":
 
     ind = int(sys.argv[1])
 
-    # plot_ellipticity_examples()
-    plot_stations_map()
+    plot_ellipticity_examples()
+    # plot_stations_map()
     # plot_globe()
 
     # read_well_data()
