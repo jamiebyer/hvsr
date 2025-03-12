@@ -305,7 +305,7 @@ def organize_station_files():
     df_mapping["Start_time (UTC)"] = pd.to_datetime(df_mapping["Start_time (UTC)"])
     df_mapping["End_time (UTC)"] = pd.to_datetime(df_mapping["End_time (UTC)"])
 
-    in_dir = r"./../../gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/"
+    in_dir = "./data/Whitehorse_ANT/"
     # create folder for site
     out_dir = "./results/timeseries/sorted/"
     if not os.path.isdir(out_dir):

@@ -3,8 +3,12 @@ import datetime
 
 
 def make_output_folder(dir_path):
-    if not os.path.isdir(dir_path) and not os.path.isfile(dir_path):
+    # print(not os.path.isdir(dir_path), not os.path.isfile(dir_path))
+    # if not os.path.isdir(dir_path) and not os.path.isfile(dir_path):
+    try:
         os.mkdir(dir_path)
+    except:
+        pass
 
 
 def create_file_list(ind ,in_path):

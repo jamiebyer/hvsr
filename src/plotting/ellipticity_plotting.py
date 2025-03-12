@@ -259,16 +259,17 @@ def plot_ellipticity_outliers():
                 continue
 
 
-def compare_hvsr_raydec():
+def compare_hvsr_raydec(in_path_hvsr, in_path_raydec, out_path):
     # get hvsr
     # f_name = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
-    f_name = "./results/timeseries/example_timeseries_slice_E.miniseed"
-    fnames = [[f_name, f_name.replace("_E.", "_N."), f_name.replace("_E.", "_Z.")]]
+    # f_name = "./results/timeseries/example_timeseries_slice_E.miniseed"
+    f_name = in_path_hvsr
+    fnames = [[f_name, f_name.replace(".E.", ".N."), f_name.replace(".E.", ".Z.")]]
 
     srecords, hvsr = microtremor_hvsr_diffuse_field(fnames)
 
     # get ellipticity
-    da_ellipticity = xr.open_dataarray("./results/raydec/example_site.nc")
+    da_ellipticity = xr.open_dataarray(in_path_raydec)
 
     # plt.subplot(1, 2, 1)
     plt.plot(hvsr.frequency, hvsr.amplitude)
@@ -283,4 +284,83 @@ def compare_hvsr_raydec():
 
     plt.legend(["hvsr", "ellipticity"])
 
-    plt.show()
+    print(out_path)
+    plt.savefig(out_path)
+
+
+
+def plot_hvsr_station():
+    # get hvsr
+    # f_name = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
+    f_name = "./results/timeseries/example_timeseries_slice_E.miniseed"
+    fnames = [[f_name, f_name.replace("_E.", "_N."), f_name.replace("_E.", "_Z.")]]
+
+    srecords, hvsr = microtremor_hvsr_diffuse_field(fnames)
+
+    in_path = "./results/raydec/"
+    site = "06"
+
+    meds = []
+    for f in os.listdir(in_path + site + "/"):
+        da = xr.open_dataarray(in_path + site + "/" + f)
+        meds.append(da.median(dim="wind"))
+
+    plt.plot(hvsr.frequency, hvsr.amplitude)
+
+    # plt.plot(meds, da.freqs)
+    plt.imshow(np.array(meds).T)
+    # plt.xscale("log")
+    # plt.xlim([0.8, 50])
+
+    plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
+
+
+def plot_raydec_station():
+    in_path = "./results/raydec/"
+    site = "06"
+
+    meds = []
+    for f in os.listdir(in_path + site + "/"):
+        da = xr.open_dataarray(in_path + site + "/" + f)
+        meds.append(da.median(dim="wind"))
+
+    # plt.plot(meds, da.freqs)
+    plt.imshow(np.array(meds).T)
+    # plt.xscale("log")
+    # plt.xlim([0.8, 50])
+
+    plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
+
+
+
+
+def all_station_ellipticities():
+    in_path_hvsr = "./results/timeseries/sorted/"
+    in_path_raydec = "./results/raydec/"
+    #in_path = "./results/timeseries/sorted/"
+    out_path = "./results/figures/ellipticity/examples/"
+    # sites
+    #sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    sites = ["06"]
+    # sites = os.listdir(in_paths)
+
+    in_paths_hvsr = []
+    in_paths_raydec = []
+    #in_paths = []
+    out_paths = []
+    make_folders = False
+    for s in sites:
+        #for f in os.listdir(in_path + s + "/"):
+        for f in os.listdir(in_path_hvsr + s + "/"):
+            if ".E." not in f:
+                continue
+            if make_folders:
+                make_output_folder(out_path + s + "/")
+            in_paths_hvsr.append(in_path_hvsr + s + "/" + f)
+            in_paths_raydec.append(in_path_raydec + s + "/" + f.replace(".miniseed", ".nc"))
+            #in_paths.append(in_path + s + "/" + f)
+            out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".png"))
+            #out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".nc"))
+    
+    compare_hvsr_raydec(in_paths_hvsr[ind], in_paths_raydec[ind], out_paths[ind])
+    # example_ellipticity(in_paths[ind], out_paths[ind])

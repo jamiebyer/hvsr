@@ -12,19 +12,19 @@ import pytz
 import matplotlib.pyplot as plt
 from scipy.signal import butter, lfilter, freqz, filtfilt
 from obspy.core.utcdatetime import UTCDateTime
+import time
 
 
 ###### TIMESERIES PROCESSING ######
 
 
-def slice_example_timeseries():
+def slice_timeseries(in_path):
     """
     Keep in miniseed format.
     """
     # use df_mapping to get stations
     # df_mapping = pd.read_csv("./data/df_mapping.csv")
 
-    in_path = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
 
     st_E = obspy.read(in_path)
     tr_E = st_E.traces[0]
@@ -48,10 +48,11 @@ def slice_example_timeseries():
     times = start_date + delta_times
 
     hours = np.array([t.hour for t in times])
-    night_inds = (hours >= 22) | (hours <= 6)
+    night_inds = (hours >= 22) | (hours < 6)
 
     ts = np.array([tr_Z.data, tr_N.data, tr_E.data])
 
+    '''
     st_E.slice(
         UTCDateTime(times[night_inds][0]), UTCDateTime(times[night_inds][-1])
     ).write("./results/timeseries/example_timeseries_slice_E.miniseed", format="MSEED")
@@ -61,18 +62,16 @@ def slice_example_timeseries():
     st_Z.slice(
         UTCDateTime(times[night_inds][0]), UTCDateTime(times[night_inds][-1])
     ).write("./results/timeseries/example_timeseries_slice_Z.miniseed", format="MSEED")
-
+    '''
     return times, ts, night_inds, delta
 
 
-def filter_timeseries():
+def filter_timeseries(in_path):
     """
     Keep in miniseed format.
     """
     # use df_mapping to get stations
     # df_mapping = pd.read_csv("./data/df_mapping.csv")
-
-    in_path = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
 
     st_E = obspy.read(in_path)
     tr_E = st_E.traces[0]
@@ -119,93 +118,6 @@ def filter_timeseries():
     return times, ts, ts_filt, night_inds, delta
 
 
-def convert_miniseed_to_parquet(
-    in_path=r"/home/gilbert_lab/Whitehorse_ANT/Whitehorse_ANT/",
-    out_path=r"./results/timeseries/raw/",
-):
-    """
-    Loop over raw timeseries miniseed files from smart solo geophone.
-    Consolodate 3 components (vert, north, east) into one file.
-    Determine station and date from miniseed and save to corresponding path.
-
-    :param in_path: path of directory containing miniseed files
-    """
-    # Loop over raw miniseed files
-    make_output_folder(out_path)
-    full_timeseries_stats = {}
-    for file_name in os.listdir(in_path):
-
-        if ".E." not in file_name:
-            continue
-        # read in miniseed
-        stream_east = read(in_path + file_name, format="mseed")
-        stream_north = read(in_path + file_name.replace(".E.", ".N."), format="mseed")
-        stream_vert = read(in_path + file_name.replace(".E.", ".Z."), format="mseed")
-
-        # validate input file
-
-        if not np.all(
-            np.array([len(stream_east), len(stream_north), len(stream_vert)]) == 1
-        ):
-            raise ValueError
-
-        trace_east = stream_east.traces[0]
-        trace_north = stream_north.traces[0]
-        trace_vert = stream_vert.traces[0]
-
-        # using times from only east component... validate somehow?
-
-        dates = [d.datetime for d in trace_east.times(type="utcdatetime")]
-        # time passed, used in raydec
-        times = trace_east.times()
-        times -= times[0]
-
-        # get station
-        station = trace_east.stats["station"]
-
-        # also get station
-        if station not in full_timeseries_stats:
-            full_timeseries_stats[station] = {}
-        # get stats for whole timeseries
-        full_timeseries_stats[station][date] = get_timeseries_stats(vert, north, east)
-
-        # save miniseed file info
-        east, north, vert = trace_east.data, trace_north.data, trace_vert.data
-        # could save these stats later
-        """
-        # get serial number and day number from miniseed filename
-        start_date, sampling_rate, delta, npts = (
-            trace_east.stats["starttime"],
-            trace_east.stats["sampling_rate"],
-            trace_east.stats["delta"],
-            trace_east.stats["npts"],            
-        )
-        """
-        magnitude = np.sqrt(vert**2 + north**2 + east**2)
-
-        df_timeseries = pd.DataFrame(
-            {
-                "date": dates,
-                "time": times,
-                "vert": vert,
-                "north": north,
-                "east": east,
-                "magnitude": magnitude,
-            },
-        )
-
-        # write to parquet
-
-        # make output folders for diff stations, with date as filename
-
-        start_date = str(trace_east.stats["starttime"]).split("T")[0]
-        # save with parquet to compress
-        make_output_folder(out_path + station)
-        df_timeseries.to_parquet(out_path + station + "/" + start_date + ".parquet")
-
-        # compare/save file size difference
-        # 212 GB for miniseed
-
 
 def get_clean_timeseries_slice(
     include_outliers,
@@ -246,3 +158,49 @@ def get_clean_timeseries_slice(
     # save stats to df
     df_stats = pd.DataFrame(timeseries_stats)
     df_stats.to_csv("./results/timeseries/stats/timeseries_slice.csv")
+
+
+def plot_station_noise():
+    in_path = "./results/timeseries/sorted/"
+    site = "06"
+    
+    #start_time = datetime.datetime(hour=22)
+    #start_time = datetime.datetime.strptime('22:00', '%H:%M')
+    #s = 8 * 60 *60 *100
+    #s = 3240000
+    #delta = 0.01
+    #d_times = start_time + np.arange(0, s) * datetime.timedelta(seconds=delta)
+
+    # time.strftime('%H:%M')
+
+    # mags = []
+    # freqs = []
+    for f in os.listdir(in_path + site + "/"):
+        if ".E." not in f:
+            continue
+        times, ts, night_inds, delta = slice_timeseries(in_path + site + "/" + f)
+
+        # get noise frequency
+        mag = np.sqrt(ts[0][night_inds]**2+ts[1][night_inds]**2+ts[2][night_inds]**2)
+        #mags.append(mag)
+        '''
+        ft = np.fft.fftn(
+            ts[:, night_inds],
+            axes=[1],
+        )
+        freqs_shift = np.fft.fftshift(ft)
+        freqs.append(freqs_shift)
+        '''
+
+        make_output_folder("./figures/timeseries/" + site + "/")
+        plt.clf()
+        #plt.imshow(freqs)
+        plt.plot(times[night_inds], mag)
+
+        #plt.xticks(np.arange(0, 8*60 *60 *100, 8), [22, 23, 0, 1, 2, 3, 4, 5])
+
+        plt.tight_layout()
+        plt.savefig("./figures/timeseries/" + site + "/" + f.replace(".E.miniseed", ".png"))
+
+        
+

@@ -512,7 +512,7 @@ def read_permafrost_polygon_files():
 
 
 
-def read_permafrost_files()
+def read_permafrost_files():
     # read .tif files
     # read csv files
     pass

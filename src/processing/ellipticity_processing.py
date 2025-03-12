@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
-from processing.timeseries_processing import slice_example_timeseries
+from processing.timeseries_processing import slice_timeseries
 from processing.raydec import raydec
 from utils.utils import make_output_folder
 import time
@@ -125,8 +125,9 @@ def write_raydec_df(
     return date
 
 
-def example_ellipticity():
-    times, ts, night_inds, delta = slice_example_timeseries()
+def example_ellipticity(in_path, out_path):
+
+    times, ts, night_inds, delta = slice_timeseries(in_path)
     # need to save timeseries
     times = np.arange(0, len(night_inds) * delta, delta)
 
@@ -165,7 +166,7 @@ def example_ellipticity():
         dims=["freqs", "wind"],
     )
 
-    ds.to_netcdf("./results/raydec/example_site.nc")
+    ds.to_netcdf(out_path)
 
 
 def temporal_ellipticity():
