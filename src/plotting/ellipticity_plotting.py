@@ -170,9 +170,9 @@ def plot_ellipticity_examples(out_path="./results/figures/ellipticity/"):
         print(filename)
         da_raydec = xr.open_dataarray(in_path + filename + ".parquet.nc")
         da_raydec = da_raydec.dropna(dim="freqs")
-        
+
         inds = np.squeeze(np.array([da_raydec["QC_2"] == False]).T)
-        
+
         axes[ind].plot(
             da_raydec["freqs"].values,
             da_raydec.values[:, inds],
@@ -284,3 +284,46 @@ def compare_hvsr_raydec():
     plt.legend(["hvsr", "ellipticity"])
 
     plt.show()
+
+
+def plot_hvsr_station():
+    # get hvsr
+    # f_name = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
+    f_name = "./results/timeseries/example_timeseries_slice_E.miniseed"
+    fnames = [[f_name, f_name.replace("_E.", "_N."), f_name.replace("_E.", "_Z.")]]
+
+    srecords, hvsr = microtremor_hvsr_diffuse_field(fnames)
+
+    in_path = "./results/raydec/"
+    site = "06"
+
+    meds = []
+    for f in os.listdir(in_path + site + "/"):
+        da = xr.open_dataarray(in_path + site + "/" + f)
+        meds.append(da.median(dim="wind"))
+
+    plt.plot(hvsr.frequency, hvsr.amplitude)
+
+    # plt.plot(meds, da.freqs)
+    plt.imshow(np.array(meds).T)
+    # plt.xscale("log")
+    # plt.xlim([0.8, 50])
+
+    plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
+
+
+def plot_raydec_station():
+    in_path = "./results/raydec/"
+    site = "06"
+
+    meds = []
+    for f in os.listdir(in_path + site + "/"):
+        da = xr.open_dataarray(in_path + site + "/" + f)
+        meds.append(da.median(dim="wind"))
+
+    # plt.plot(meds, da.freqs)
+    plt.imshow(np.array(meds).T)
+    # plt.xscale("log")
+    # plt.xlim([0.8, 50])
+
+    plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")

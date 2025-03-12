@@ -4,6 +4,8 @@ from osgeo import ogr
 import fiona
 import zipfile
 
+import numpy as np
+
 
 def read_drillhole_files():
     dir_path = "./data/yukon_datasets/DrillHoles/DrillholeLocations/"
@@ -165,9 +167,81 @@ def read_water_wells_files():
     """
     kml_file = gpd.read_file(dir_path + "Water_Wells.kmz", driver="libkml")
 
-    print(gdb_file.columns)
-    print(shp_file.columns)
-    print(kml_file.columns)
+    depths = gdb_file["DEPTH_TO_BEDROCK_FTBGS"]
+
+    gt_depths_inds, gt_depths, lt_depths_inds, lt_depths, exact_depths_inds = (
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
+    for ind, d in enumerate(depths):
+        if d is None:
+            continue
+        if ">" in d:
+            gt_depths_inds.append(ind)
+            gt_depths.append(float(d.replace(">", "")))
+        elif "<" in d:
+            lt_depths_inds.append(ind)
+            lt_depths.append(float(d.replace("<", "")))
+        else:
+            exact_depths_inds.append(ind)
+
+    cm = plt.cm.get_cmap("RdYlBu")
+
+    plt.subplot(1, 2, 1)
+    sc = plt.scatter(
+        gdb_file["LONGITUDE_DD"].iloc[gt_depths_inds],
+        gdb_file["LATITUDE_DD"].iloc[gt_depths_inds],
+        c=gt_depths,
+        vmin=0,
+        vmax=500,
+        s=35,
+        cmap=cm,
+    )
+    plt.colorbar(sc)
+
+    plt.xlim([-135.3, -134.9])
+    plt.ylim([60.65, 60.81])
+    plt.title("bedrock depth greater than")
+
+    """
+    plt.subplot(1, 3, 2)
+    sc = plt.scatter(
+        gdb_file["LONGITUDE_DD"].iloc[lt_depths_inds],
+        gdb_file["LATITUDE_DD"].iloc[lt_depths_inds],
+        c=lt_depths,
+        vmin=np.min(lt_depths),
+        vmax=np.max(lt_depths),
+        s=35,
+        cmap=cm,
+    )
+    plt.colorbar(sc)
+    """
+
+    plt.subplot(1, 2, 2)
+
+    exact_depths = (
+        gdb_file["DEPTH_TO_BEDROCK_FTBGS"].iloc[exact_depths_inds].astype(float)
+    )
+    sc = plt.scatter(
+        gdb_file["LONGITUDE_DD"].iloc[exact_depths_inds],
+        gdb_file["LATITUDE_DD"].iloc[exact_depths_inds],
+        c=exact_depths,
+        vmin=0,
+        vmax=500,
+        s=35,
+        cmap=cm,
+    )
+    plt.colorbar(sc)
+    plt.title("bedrock depth")
+
+    plt.xlim([-135.3, -134.9])
+    plt.ylim([60.65, 60.81])
+
+    plt.tight_layout()
+    plt.show()
 
 
 def read_bedrock_geology_files():
@@ -478,7 +552,7 @@ def read_permafrost_point_files():
     print(kml_file.columns)
 
 
-def read_permafrost_polygon_files():    
+def read_permafrost_polygon_files():
     dir_path = "./data/yukon_datasets/Geothermal/Permafrost/"
 
     """
@@ -511,8 +585,7 @@ def read_permafrost_polygon_files():
     print(kml_file.columns)
 
 
-
-def read_permafrost_files()
+def read_permafrost_files():
     # read .tif files
     # read csv files
     pass
@@ -542,7 +615,9 @@ def read_radiogenic_heat_files():
        'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
        'icon', 'snippet', 'geometry']
     """
-    kml_file = gpd.read_file(dir_path + "Geothermal_Radiogenic_Heat_Production.kmz", driver="libkml")
+    kml_file = gpd.read_file(
+        dir_path + "Geothermal_Radiogenic_Heat_Production.kmz", driver="libkml"
+    )
 
     print(gdb_file.columns)
     print(shp_file.columns)

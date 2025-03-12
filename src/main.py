@@ -33,11 +33,9 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    ind = int(sys.argv[1])
+    # ind = int(sys.argv[1])
 
-    get_station_file_mapping()
-    # plot_station_schedule()
-    # organize_station_files()
+    plot_raydec_station()
 
     # Launch app
     """
