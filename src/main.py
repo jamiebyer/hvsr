@@ -33,11 +33,9 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    ind = int(sys.argv[1])
+    # ind = int(sys.argv[1])
 
-    plot_station_noise()
-
-    
+    plot_raydec_station()
 
     # Launch app
     """

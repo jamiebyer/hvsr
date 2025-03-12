@@ -170,9 +170,9 @@ def plot_ellipticity_examples(out_path="./results/figures/ellipticity/"):
         print(filename)
         da_raydec = xr.open_dataarray(in_path + filename + ".parquet.nc")
         da_raydec = da_raydec.dropna(dim="freqs")
-        
+
         inds = np.squeeze(np.array([da_raydec["QC_2"] == False]).T)
-        
+
         axes[ind].plot(
             da_raydec["freqs"].values,
             da_raydec.values[:, inds],
@@ -284,9 +284,13 @@ def compare_hvsr_raydec(in_path_hvsr, in_path_raydec, out_path):
 
     plt.legend(["hvsr", "ellipticity"])
 
+<<<<<<< HEAD
     print(out_path)
     plt.savefig(out_path)
 
+=======
+    plt.show()
+>>>>>>> 1c36a82c3293da9561069c3327d7186ff9d0bd7b
 
 
 def plot_hvsr_station():
@@ -330,7 +334,6 @@ def plot_raydec_station():
     # plt.xlim([0.8, 50])
 
     plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
-
 
 
 
