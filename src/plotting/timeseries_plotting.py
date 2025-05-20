@@ -6,7 +6,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from utils.utils import make_output_folder
 import xarray as xr
-from processing.timeseries_processing import filter_timeseries
 
 import plotly.io as pio
 

@@ -9,8 +9,8 @@ import json
 from utils.utils import make_output_folder
 import xarray as xr
 from scipy.signal import find_peaks
-from plotting.map_plotting import plot_map
 from processing.hvsr_processing import microtremor_hvsr_diffuse_field
+
 
 # RAYDEC PLOT
 
@@ -198,6 +198,36 @@ def plot_ellipticity_examples(out_path="./results/figures/ellipticity/"):
     plt.savefig(out_path + "categories.png")
 
 
+def plot_spatial_ellipticity():
+    # plot median, stacked curve, with errors
+    from matplotlib.gridspec import GridSpec
+
+    # Create a figure
+    fig = plt.figure(figsize=(12, 8))
+
+    # Define GridSpec layout
+    gs = GridSpec(4, 6, figure=fig)
+
+    # phase 1 stations
+    p1_stations = [
+        [23, 24, 25, 26, 27, 28],
+        [17, 18, 19, 22, 20, 21],
+        [9, 12, 10, 13, 11, 14],
+        [2, 3, 5, 4, 6, 8],
+    ]
+
+    for r in range(len(p1_stations)):
+        for c in range(len(p1_stations[r])):
+            station = p1_stations[r, c]
+            ax = fig.add_subplot(gs[r, c])
+
+            # get path for this phase and station
+            ax.plot([1, 2, 3], [4, 5, 6])
+            ax.set_title(station)
+
+    plt.savefig()
+
+
 def plot_ellipticity_outliers():
     in_path = "./results/raydec/QC/"
     out_path = "./results/figures/ellipticity/"
@@ -284,13 +314,8 @@ def compare_hvsr_raydec(in_path_hvsr, in_path_raydec, out_path):
 
     plt.legend(["hvsr", "ellipticity"])
 
-<<<<<<< HEAD
     print(out_path)
     plt.savefig(out_path)
-
-=======
-    plt.show()
->>>>>>> 1c36a82c3293da9561069c3327d7186ff9d0bd7b
 
 
 def plot_hvsr_station():
@@ -336,34 +361,50 @@ def plot_raydec_station():
     plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
 
 
-
 def all_station_ellipticities():
     in_path_hvsr = "./results/timeseries/sorted/"
     in_path_raydec = "./results/raydec/"
-    #in_path = "./results/timeseries/sorted/"
+    # in_path = "./results/timeseries/sorted/"
     out_path = "./results/figures/ellipticity/examples/"
     # sites
-    #sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    # sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
     sites = ["06"]
     # sites = os.listdir(in_paths)
 
     in_paths_hvsr = []
     in_paths_raydec = []
-    #in_paths = []
+    # in_paths = []
     out_paths = []
     make_folders = False
     for s in sites:
-        #for f in os.listdir(in_path + s + "/"):
+        # for f in os.listdir(in_path + s + "/"):
         for f in os.listdir(in_path_hvsr + s + "/"):
             if ".E." not in f:
                 continue
             if make_folders:
                 make_output_folder(out_path + s + "/")
             in_paths_hvsr.append(in_path_hvsr + s + "/" + f)
-            in_paths_raydec.append(in_path_raydec + s + "/" + f.replace(".miniseed", ".nc"))
-            #in_paths.append(in_path + s + "/" + f)
+            in_paths_raydec.append(
+                in_path_raydec + s + "/" + f.replace(".miniseed", ".nc")
+            )
+            # in_paths.append(in_path + s + "/" + f)
             out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".png"))
-            #out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".nc"))
-    
+            # out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".nc"))
+
     compare_hvsr_raydec(in_paths_hvsr[ind], in_paths_raydec[ind], out_paths[ind])
     # example_ellipticity(in_paths[ind], out_paths[ind])
+
+
+def plot_raydec_quality_control():
+    in_path_timeseries = "./results/timeseries/examples/"
+    in_path_raydec = "./results/ellipticity/examples/"
+    out_path = "./figures/quality_control/examples/"
+
+    raydec_quality_control(in_path_timeseries, in_path_raydec, out_path)
+
+
+def plot_raydec_processing():
+    # plot raydec windowing
+    # plot raydec detrending
+    # filtering for each frequency
+    pass
