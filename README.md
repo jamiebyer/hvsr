@@ -26,6 +26,32 @@
 - Deployment cycles, and permanent stations.
 
 ---
+### Yukon Datasets
+- Geology:
+    - Bedrock Geology: https://open.yukon.ca/data/datasets/bedrock-geology
+    - Faults: https://open.yukon.ca/data/datasets/faults
+    - Sedimentary Basins: https://open.yukon.ca/data/datasets/sedimentary-basins-250k
+    - Surficial Geology: https://data.geology.gov.yk.ca/Compilation/33#InfoTab
+    - Terranes: https://open.yukon.ca/data/datasets/terranes
+
+- Drillholes: 
+    - Locations: https://open.yukon.ca/data/datasets/drillhole-locations-250k
+    - Geotechnical boreholes (double check): https://open.yukon.ca/data/datasets/geotechnical-borehole-point
+    - Geothermal boreholes: 
+    - Water wells: https://open.yukon.ca/data/datasets/water-wells
+
+- Geophysics
+    - Curie Depth: https://data.geology.gov.yk.ca/Reference/79428#InfoTab
+    - Geothermal Dataset: https://data.geology.gov.yk.ca/Compilation/42#InfoTab
+    - Permafrost (diff, larger database?): https://service.yukon.ca/permafrost/Downloads.html
+    - Radiogenic Heat (double check): https://data.geology.gov.yk.ca/Reference/95816#InfoTab
+
+
+
+- Look into:
+    - Geothermal springs and wells: https://databasin.org/datasets/68120ac65a8242d5a6d3eab88bf57af3/
+    - Stratigraphic Sections: https://data.geology.gov.yk.ca/Compilation/19#InfoTab
+
 
 ## Timeseries processing
 - Example sites: 

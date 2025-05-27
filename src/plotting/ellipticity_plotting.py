@@ -14,8 +14,9 @@ from plotting.map_plotting import plot_map
 from processing.hvsr_processing import microtremor_hvsr_diffuse_field
 import datetime
 from matplotlib.colors import LogNorm
-# RAYDEC PLOT
 
+
+# RAYDEC PLOT
 
 def plot_raydec(da_raydec, station, date, fig_dict, scale_factor):
     # ideally the outliers are dropped and a new df is saved to read in,
@@ -202,6 +203,97 @@ def plot_ellipticity_examples(out_path="./results/figures/ellipticity/"):
     plt.savefig(out_path + "categories.png")
 
 
+def plot_spatial_ellipticity():
+    # plot median, stacked curve, with errors
+    from matplotlib.gridspec import GridSpec
+
+    # Create a figure
+    fig = plt.figure(figsize=(12, 8))
+
+    # Define GridSpec layout
+    gs = GridSpec(4, 6, figure=fig)
+
+    # phase 1 stations
+    p1_stations = [
+        [23, 24, 25, 26, 27, 28],
+        [17, 18, 19, 22, 20, 21],
+        [9, 12, 10, 13, 11, 14],
+        [2, 3, 5, 4, 6, 8],
+    ]
+
+    for r in range(len(p1_stations)):
+        for c in range(len(p1_stations[r])):
+            station = p1_stations[r, c]
+            ax = fig.add_subplot(gs[r, c])
+
+            # get path for this phase and station
+            ax.plot([1, 2, 3], [4, 5, 6])
+            ax.set_title(station)
+
+    plt.savefig()
+
+
+def plot_ellipticity_outliers():
+    in_path = "./results/raydec/QC/"
+    out_path = "./results/figures/ellipticity/"
+    make_output_folder(out_path)
+    for station in os.listdir(in_path):
+        print(station)
+        make_output_folder(out_path + str(station) + "/")
+        for date in os.listdir(in_path + station):
+            try:
+                da_ellipticity = xr.open_dataarray(in_path + station + "/" + date)
+
+                plt.close()
+
+                fig, axs = plt.subplots(figsize=(20, 14), nrows=2, ncols=2)
+
+                da_ellipticity.plot.line(
+                    x="freqs",
+                    ax=axs[0, 0],
+                    color=(0.1, 0.1, 0.1, 0.1),
+                    xscale="log",
+                    add_legend=False,
+                )
+
+                if np.any(da_ellipticity["QC_0"] == False):
+                    da_ellipticity[:, da_ellipticity["QC_0"] == False].plot.line(
+                        x="freqs",
+                        ax=axs[1, 0],
+                        color=(0.1, 0.1, 0.1, 0.1),
+                        xscale="log",
+                        add_legend=False,
+                    )
+                axs[1, 0].set_title(np.sum(da_ellipticity["QC_0"].values))
+
+                if np.any(da_ellipticity["QC_1"] == False):
+                    da_ellipticity[:, da_ellipticity["QC_1"] == False].plot.line(
+                        x="freqs",
+                        ax=axs[0, 1],
+                        color=(0.1, 0.1, 0.1, 0.1),
+                        xscale="log",
+                        add_legend=False,
+                    )
+                axs[0, 1].set_title(np.sum(da_ellipticity["QC_1"].values))
+
+                if np.any(da_ellipticity["QC_2"] == False):
+                    da_ellipticity[:, da_ellipticity["QC_2"] == False].plot.line(
+                        x="freqs",
+                        ax=axs[1, 1],
+                        color=(0.1, 0.1, 0.1, 0.1),
+                        xscale="log",
+                        add_legend=False,
+                    )
+
+                axs[1, 1].set_title(np.sum(da_ellipticity["QC_2"].values))
+
+                plt.tight_layout()
+
+                plt.savefig(out_path + station + "/" + date.replace(".nc", ".png"))
+            except AttributeError:
+                continue
+
+
 def compare_hvsr_raydec(in_path_hvsr, in_path_raydec, out_path):
     # get hvsr
     # f_name = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
@@ -231,7 +323,6 @@ def compare_hvsr_raydec(in_path_hvsr, in_path_raydec, out_path):
     plt.savefig(out_path)
 
 
-
 def plot_hvsr_station():
     # get hvsr
     # f_name = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
@@ -258,24 +349,36 @@ def plot_hvsr_station():
     plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
 
 
+    meds = []
+    for f in os.listdir(in_path + site + "/"):
+        da = xr.open_dataarray(in_path + site + "/" + f)
+        meds.append(da.median(dim="wind"))
 
-def all_station_ellipticity_plotting(ind):
+    # plt.plot(meds, da.freqs)
+    plt.imshow(np.array(meds).T)
+    # plt.xscale("log")
+    # plt.xlim([0.8, 50])
+
+    plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
+
+
+def all_station_ellipticities():
     in_path_hvsr = "./results/timeseries/sorted/"
-    in_path_raydec = "./results/ellipticity/examples/"
-    #in_path = "./results/timeseries/sorted/"
-    out_path = "./figures/ellipticity/examples/"
+    in_path_raydec = "./results/raydec/"
+    # in_path = "./results/timeseries/sorted/"
+    out_path = "./results/figures/ellipticity/examples/"
     # sites
-    sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
-    #sites = ["06"]
+    # sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    sites = ["06"]
     # sites = os.listdir(in_paths)
 
     in_paths_hvsr = []
     in_paths_raydec = []
-    #in_paths = []
+    # in_paths = []
     out_paths = []
     make_folders = False
     for s in sites:
-        #for f in os.listdir(in_path + s + "/"):
+        # for f in os.listdir(in_path + s + "/"):
         for f in os.listdir(in_path_hvsr + s + "/"):
             if ".E." not in f:
                 continue
@@ -285,8 +388,8 @@ def all_station_ellipticity_plotting(ind):
             in_paths_raydec.append(in_path_raydec + s + "/" + f.replace(".E.miniseed", ".nc"))
             #in_paths.append(in_path + s + "/" + f)
             out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".png"))
-            #out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".nc"))
-    
+            # out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".nc"))
+
     compare_hvsr_raydec(in_paths_hvsr[ind], in_paths_raydec[ind], out_paths[ind])
     # example_ellipticity(in_paths[ind], out_paths[ind])
 
@@ -588,7 +691,19 @@ def plot_raydec_station_peaks(in_path, out_path):
 
 
 
-
-
 def plot_averaged_station_ellipticity():
+    pass
+
+def plot_raydec_quality_control():
+    in_path_timeseries = "./results/timeseries/examples/"
+    in_path_raydec = "./results/ellipticity/examples/"
+    out_path = "./figures/quality_control/examples/"
+
+    raydec_quality_control(in_path_timeseries, in_path_raydec, out_path)
+
+
+def plot_raydec_processing():
+    # plot raydec windowing
+    # plot raydec detrending
+    # filtering for each frequency
     pass

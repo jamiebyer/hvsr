@@ -34,11 +34,8 @@ if __name__ == "__main__":
     """
 
     ind = int(sys.argv[1])
-    plot_raydec_station_timeseries_full(ind)
+    # plot_raydec_station_timeseries_full(ind)
     # all_station_ellipticities(ind)
-
-    #station, date = create_file_list(ind, in_path="./results/ellipticity/", suffix=".nc")
-    #plot_ellipticity(station, date, in_path="./results/ellipticity/")
 
     # Launch app
     """
@@ -46,4 +43,8 @@ if __name__ == "__main__":
     app.run_server(debug=True, host="0.0.0.0", port=8050)
     """
 
-    pass
+    # plot_station_noise()
+    # plot_drillholes()
+    # plot_stations_wells_map()
+
+    # determine_ellipticity_outliers(in_path_timeseries, in_path_raydec, out_path)

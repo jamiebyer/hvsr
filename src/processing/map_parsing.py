@@ -4,13 +4,39 @@ from osgeo import ogr
 import fiona
 import zipfile
 
+from matplotlib.patches import Polygon
+
 import numpy as np
 
 
+def read_yukon_datasets(dir_name, data_name, suffix=""):
+    dir_path = "./data/yukon_datasets/" + dir_name + "/" + data_name + "/"
+
+    gdb_file = gpd.read_file(
+        dir_path + data_name + suffix + ".gdb", driver="OpenFileGDB"
+    )
+
+    shp_file = gpd.read_file(
+        dir_path + data_name + suffix + ".shp", driver="ESRI Shapefile"
+    )
+
+    kml_file = gpd.read_file(dir_path + data_name + suffix + ".kmz", driver="libkml")
+
+    return gdb_file, shp_file, kml_file
+
+
 def read_drillhole_files():
-    dir_path = "./data/yukon_datasets/DrillHoles/DrillholeLocations/"
+    gdb_file, shp_file, kml_file = read_yukon_datasets(
+        "DrillHoles", "DrillholeLocations", "_250k"
+    )
+    """
+    'LATITUDE_DD', 'LONGITUDE_DD', 'DEPOSIT_MATERIAL', 'DEPOSIT_TYPE_1', 'DEPOSIT_TYPE_2',
+    'DEPOSIT_TYPE_3', 'DEPOSIT_TYPE_4', 'DEPOSIT_TYPE_LABEL'
+    """
 
     """
+    gbd_file
+    
     ['DRILLHOLE_ID', 'PROPERTY', 'DDH_NUMBER', 'ZONE_DESC', 'YEAR_DRILLED',
        'ELEVATION_M', 'AZIMUTH', 'DIP', 'TOTAL_LENGTH_M',
        'CORE_CONDITION_DESC', 'TOTAL_BOXES', 'COMPLETE_HOLE', 'CORE_SIZE_DESC',
@@ -20,12 +46,10 @@ def read_drillhole_files():
        'LONGITUDE_DD', 'DEPOSIT_MATERIAL', 'DEPOSIT_TYPE_1', 'DEPOSIT_TYPE_2',
        'DEPOSIT_TYPE_3', 'DEPOSIT_TYPE_4', 'DEPOSIT_TYPE_LABEL',
        'LINK_TO_DATA', 'geometry']
-    """
-    gdb_file = gpd.read_file(
-        dir_path + "Drillhole_Locations_250k.gdb", driver="OpenFileGDB"
-    )
+    
+    
+    shp_file
 
-    """
     ['ID', 'PROPERTY', 'DDH_NUMBER', 'ZONE_DESC', 'YEAR_DRILL', 'ELEV_M',
        'AZIMUTH', 'DIP', 'TOT_LEN_M', 'CORE_CON', 'TOT_BOXES', 'COMPLETE',
        'CORE_SIZE', 'PUBLIC', 'MINFILENUM', 'MINFILE', 'MINF_LINK',
@@ -34,59 +58,39 @@ def read_drillhole_files():
        'DEP_TYPE_2', 'DEP_TYPE_3', 'DEP_TYPE_4', 'D_TYP_LABL', 'LINK_DATA',
        'geometry']
     """
-    shp_file = gpd.read_file(
-        dir_path + "Drillhole_Locations_250k.shp", driver="ESRI Shapefile"
-    )
-
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
-    kml_file = gpd.read_file(dir_path + "Drillhole_Locations_250k.kmz", driver="libkml")
-
-    print(gdb_file.columns)
-    print(shp_file.columns)
-    print(kml_file.columns)
 
 
 def read_geotechnical_files():
-    dir_path = "./data/yukon_datasets/DrillHoles/GeotechnicalBoreholes/"
-
-    """
-    ['SITE_ID', 'PROJECT_NAME', 'PROJECT_NUMBER', 'LOCATION_DESC',
-       'HOLE_DEPTH', 'CONSULTANT', 'CONTRACTOR', 'CLIENT', 'START_DATE',
-       'END_DATE', 'LINK_TO_DATA', 'LATITUDE_DD', 'LONGITUDE_DD', 'geometry']
-    """
-    gdb_file = gpd.read_file(
-        dir_path + "Geotechnical_Boreholes.gdb", driver="OpenFileGDB"
+    gdb_file, shp_file, kml_file = read_yukon_datasets(
+        "DrillHoles", "GeotechnicalBoreholes"
     )
 
     """
+    'LATITUDE_DD', 'LONGITUDE_DD', 'HOLE_DEPTH'
+
+    gbd
+
+    ['SITE_ID', 'PROJECT_NAME', 'PROJECT_NUMBER', 'LOCATION_DESC',
+       'HOLE_DEPTH', 'CONSULTANT', 'CONTRACTOR', 'CLIENT', 'START_DATE',
+       'END_DATE', 'LINK_TO_DATA', 'LATITUDE_DD', 'LONGITUDE_DD', 'geometry']
+    
+    
+    shp
+
     ['SITE_ID', 'NAME', 'PROJECTNUM', 'LOCATION', 'HOLE_DEPTH', 'CONSULTANT',
        'CONTRACTOR', 'CLIENT', 'START_DATE', 'END_DATE', 'DATA_LINK',
        'LATITUDE', 'LONGITUDE', 'geometry']
     """
-    shp_file = gpd.read_file(
-        dir_path + "Geotechnical_Boreholes.shp", driver="ESRI Shapefile"
-    )
-
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
-    kml_file = gpd.read_file(dir_path + "Geotechnical_Boreholes.kmz", driver="libkml")
-
-    print(gdb_file.columns)
-    print(shp_file.columns)
-    print(kml_file.columns)
 
 
 def read_geothermal_boreholes_files():
-    dir_path = "./data/yukon_datasets/DrillHoles/GeothermalBoreholes/"
+    gdb_file, shp_file, kml_file = read_yukon_datasets(
+        "DrillHoles", "Geothermal_Boreholes"
+    )
 
     """
+    gbd
+
     ['NAME', 'LOCATION', 'PURPOSE', 'STATUS', 'SCREEN_INT', 'STATIC_WL',
        'CAPACITY', 'DISCHARGE', 'TEMP_WATER', 'DRILL_DEPTH', 'BROCK_DEPTH',
        'TEMP_MIN', 'TEMP_MAX', 'INT_TOP', 'INT_BOTTOM', 'INT_THERM',
@@ -98,12 +102,10 @@ def read_geothermal_boreholes_files():
        'E_ISO_2H', 'RAD_ISO_3H', 'GAS_NOBLE', 'GAS_DISS', 'GAS_EMITTED',
        'REFERENCE', 'REF_LINK', 'COMMENTS', 'ELEVATION', 'LOC_SOURCE',
        'LATITUDE_DD', 'LONGITUDE_DD', 'geometry']
-    """
-    gdb_file = gpd.read_file(
-        dir_path + "Geothermal_Boreholes.gdb", driver="OpenFileGDB"
-    )
+    
+       
+    shp
 
-    """
     ['NAME', 'LOCATION', 'PURPOSE', 'STATUS', 'SCREEN_INT', 'STATIC_WL',
        'CAPACITY', 'DISCHARGE', 'TEMP_WATER', 'DRILLDEPTH', 'BROCKDEPTH',
        'TEMP_MIN', 'TEMP_MAX', 'INT_TOP', 'INT_BOTTOM', 'INT_THERM',
@@ -115,31 +117,14 @@ def read_geothermal_boreholes_files():
        'GAS_NOBLE', 'GAS_DISS', 'GAS_EMITTD', 'REFERENCE', 'REF_LINK',
        'COMMENTS', 'ELEVATION', 'L_SOURCE', 'LAT_DD', 'LONG_DD', 'geometry']
     """
-    shp_file = gpd.read_file(
-        dir_path + "Geothermal_Boreholes.shp", driver="ESRI Shapefile"
-    )
-
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
-    kml_file = gpd.read_file(dir_path + "Geothermal_Boreholes.kmz", driver="libkml")
-
-    print(gdb_file.columns)
-    print(shp_file.columns)
-    print(kml_file.columns)
-
-
-def read_water_wells_csv_files():
-    dir_path = "./data/yukon_datasets/DrillHoles/WaterWells/"
-    df = pd.read_csv(dir_path + "Waterwells.csv")
 
 
 def read_water_wells_files():
-    dir_path = "./data/yukon_datasets/DrillHoles/WaterWells/"
+    gdb_file, shp_file, kml_file = read_yukon_datasets("DrillHoles", "WaterWells")
 
     """
+    gbd
+
     ['BOREHOLE_ID', 'WELL_NAME', 'COMMUNITY', 'PURPOSE', 'WELL_DEPTH_FTBGS',
        'DEPTH_TO_BEDROCK_FTBGS', 'ESTIMATED_YIELD_GPM', 'YIELD_METHOD',
        'STATIC_WATER_LEVEL_FTBTOC', 'DRILL_YEAR', 'DRILL_MONTH', 'DRILL_DAY',
@@ -149,23 +134,16 @@ def read_water_wells_files():
        'LINK', 'QUALITY', 'LOCATION_SOURCE', 'LATITUDE_DD', 'LONGITUDE_DD',
        'geometry']
     """
-    gdb_file = gpd.read_file(dir_path + "Water_Wells.gdb", driver="OpenFileGDB")
 
     """
+    shp
+
     ['BOREHOLEID', 'WELL_NAME', 'COMMUNITY', 'PURPOSE', 'WELL_DEPTH',
        'DEPBEDROCK', 'EST_YIELD', 'YIELD_METH', 'STATWATER', 'DRILL_YEAR',
        'DRILLMONTH', 'DRILL_DAY', 'CASINGDIAM', 'TOP_SCREEN', 'BOT_SCREEN',
        'CAS_ELEV', 'GROUNDELEV', 'HEAD_STICK', 'WELL_LOG', 'LINK', 'QUALITY',
        'LAT_DD', 'LONG_DD', 'geometry']
     """
-    shp_file = gpd.read_file(dir_path + "Water_Wells.shp", driver="ESRI Shapefile")
-
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
-    kml_file = gpd.read_file(dir_path + "Water_Wells.kmz", driver="libkml")
 
     depths = gdb_file["DEPTH_TO_BEDROCK_FTBGS"]
 
@@ -245,9 +223,11 @@ def read_water_wells_files():
 
 
 def read_bedrock_geology_files():
-    dir_path = "./data/yukon_datasets/Geology/BedrockGeology/"
+    gdb_file, shp_file, kml_file = read_yukon_datasets("DrillHoles", "BedrockGeology")
 
     """
+    gbd
+
     ['UNIT_1M', 'UNIT_250K', 'UNIT_ORIG', 'ASSEMBLAGE', 'SUPERGROUP',
        'GP_SUITE', 'FORMATION', 'MEMBER', 'NAME', 'TERRANE', 'TERR_LABEL',
        'TECT_ELEM', 'ERA_MAX', 'PERIOD_MAX', 'EPOCH_MAX', 'STAGE_MAX',
@@ -256,9 +236,10 @@ def read_bedrock_geology_files():
        'ROCK_MINOR', 'ROCK_NOTES', 'LABEL_250K', 'LABEL_1M', 'COMMENTS', 'RED',
        'GREEN', 'BLUE', 'Shape_Length', 'Shape_Area', 'geometry']
     """
-    gdb_file = gpd.read_file(dir_path + "Bedrock_Geology.gdb", driver="OpenFileGDB")
 
     """
+    shp
+
     ['UNIT_1M', 'UNIT_250K', 'UNIT_ORIG', 'ASSEMBLAGE', 'SUPERGROUP',
        'GP_SUITE', 'FORMATION', 'MEMBER', 'NAME', 'TERRANE', 'TERR_LABEL',
        'TECT_ELEM', 'ERA_MAX', 'PERIOD_MAX', 'EPOCH_MAX', 'STAGE_MAX',
@@ -267,49 +248,60 @@ def read_bedrock_geology_files():
        'ROCK_MINOR', 'ROCK_NOTES', 'LABEL_250K', 'LABEL_1M', 'COMMENTS', 'RED',
        'GREEN', 'BLUE', 'geometry']
     """
-    shp_file = gpd.read_file(dir_path + "Bedrock_Geology.shp", driver="ESRI Shapefile")
 
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
-    kml_file = gpd.read_file(dir_path + "Bedrock_Geology.kmz", driver="libkml")
+    # UNIT_250K
+    # TERRANE
+    # ROCK_CLASS
+    # ROCK_MAJOR
+    # ASSEMBLAGE
 
-    print(gdb_file.columns)
-    print(shp_file.columns)
-    print(kml_file.columns)
+    map_category = "ROCK_MAJOR"
+    # my_geoseries = my_geoseries.set_crs(epsg=4326)
+    shp_file = shp_file.to_crs("EPSG:4326")
+    # "EPSG:3578"
+    # print(shp_file.crs)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    shp_file.plot(
+        ax=ax,
+        column=map_category,
+        legend=True,
+        categorical=True,
+        legend_kwds={"loc": "upper right", "bbox_to_anchor": (1.5, 1)},
+    )
+
+    # ax.set_extent([-135.3, -134.9, 60.65, 60.81])
+
+    ax.set_xlim(-135.3, -134.9)
+    ax.set_ylim(60.65, 60.81)
+
+    plt.title(map_category)
+    plt.show()
+
+    #
+
+    # print(gdb_file)
+    # print(shp_file.columns)
+    # print(kml_file.columns)
 
 
 def read_bedrock_map_index_files():
-    dir_path = "./data/yukon_datasets/Geology/BedrockGeology/"
+    gdb_file, shp_file, kml_file = read_yukon_datasets("Geology", "BedrockGeology")
 
     """
+    gbd
+
     ['MAP_NAME', 'NTS_MAP', 'REFERENCE', 'PUBLICATION_YEAR', 'MAP_YEAR',
        'PUBLICATION_SCALE', 'MAP_SCALE', 'AGENCY', 'DATA_SOURCE', 'CONFIDENCE',
        'AREA_KM', 'Shape_Length', 'Shape_Area', 'geometry']
-    """
-    gdb_file = gpd.read_file(dir_path + "Bedrock_Map_Index.gdb", driver="OpenFileGDB")
+    
+    shp
 
-    """
     ['MAP_NAME', 'NTS_MAP', 'REFERENCE', 'PUB_YEAR', 'MAP_YEAR', 'PUB_SCALE',
        'MAP_SCALE', 'AGENCY', 'DATASOURCE', 'CONFIDENCE', 'AREA_KM',
        'geometry']
     """
-    shp_file = gpd.read_file(
-        dir_path + "Bedrock_Map_Index.shp", driver="ESRI Shapefile"
-    )
-
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
-    kml_file = gpd.read_file(dir_path + "Bedrock_Map_Index.kmz", driver="libkml")
-
-    print(gdb_file.columns)
-    print(shp_file.columns)
-    print(kml_file.columns)
 
 
 def read_yukon_bedrock_geology_files():
@@ -327,6 +319,7 @@ def read_yukon_bedrock_geology_files():
     )
 
     """
+
     ['UNIT_1M', 'UNIT_250K', 'UNIT_ORIG', 'ASSEMBLAGE', 'SUPERGROUP',
        'GP_SUITE', 'FORMATION', 'MEMBER', 'NAME', 'TERRANE', 'TERR_LABEL',
        'TECT_ELEM', 'ERA_MAX', 'PERIOD_MAX', 'EPOCH_MAX', 'STAGE_MAX',
@@ -345,62 +338,44 @@ def read_yukon_bedrock_geology_files():
 
 
 def read_faults_files():
-    dir_path = "./data/yukon_datasets/Geology/Faults/"
+    gdb_file, shp_file, kml_file = read_yukon_datasets("Geology", "Faults")
 
     """
+    'FEATURE', 'TYPE', 'SUBTYPE', 'NAME'
+
+
+    gbd
+
     ['FEATURE', 'TYPE', 'SUBTYPE', 'CONFIDENCE', 'NAME', 'REFERENCE',
        'SCALE', 'SYMBOL_DIR', 'COMMENTS', 'Shape_Length', 'geometry']
-    """
-    gdb_file = gpd.read_file(dir_path + "Faults.gdb", driver="OpenFileGDB")
+    
+    
+    shp
 
-    """
     ['FEATURE', 'TYPE', 'SUBTYPE', 'CONFIDENCE', 'NAME', 'REFERENCE',
        'SCALE', 'SYMBOL_DIR', 'COMMENTS', 'geometry']
     """
-    shp_file = gpd.read_file(dir_path + "Faults.shp", driver="ESRI Shapefile")
-
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
-    kml_file = gpd.read_file(dir_path + "Faults.kmz", driver="libkml")
-
-    print(gdb_file.columns)
-    print(shp_file.columns)
-    print(kml_file.columns)
 
 
 def read_sedimentary_basin_files():
-    dir_path = "./data/yukon_datasets/Geology/SedimentaryBasins/"
+    gdb_file, shp_file, kml_file = read_yukon_datasets(
+        "Geology", "SedimentaryBasins", "_250k"
+    )
 
     """
+    'BASIN_NAME', 'LOCATION'
+
+    gbd
+
     ['SEDIMENT_BASIN_NAME', 'SEDIMENT_BASIN_ID', 'BASIN_LOCATION',
        'DESCRIPTION', 'REGION_NAME', 'AREA_KILOMETRES', 'AREA_ACRES',
        'AREA_HECTARES', 'Shape_Length', 'Shape_Area', 'geometry']
-    """
-    gdb_file = gpd.read_file(
-        dir_path + "Sedimentary_Basins_250k.gdb", driver="OpenFileGDB"
-    )
+       
+    shp
 
-    """
     ['BASIN_ID', 'BASIN_NAME', 'LOCATION', 'DESC_', 'REGION', 'AREA_KM',
        'AREA_ACRES', 'AREA_HA', 'geometry']
     """
-    shp_file = gpd.read_file(
-        dir_path + "Sedimentary_Basins_250k.shp", driver="ESRI Shapefile"
-    )
-
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
-    kml_file = gpd.read_file(dir_path + "Sedimentary_Basins_250k.kmz", driver="libkml")
-
-    print(gdb_file.columns)
-    print(shp_file.columns)
-    print(kml_file.columns)
 
 
 def read_sedimentary_extents_files():
@@ -421,11 +396,6 @@ def read_sedimentary_extents_files():
         dir_path + "Sedimentary_Extents_1M.shp", driver="ESRI Shapefile"
     )
 
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
     kml_file = gpd.read_file(dir_path + "Sedimentary_Extents_1M.kmz", driver="libkml")
 
     print(gdb_file.columns)
@@ -472,11 +442,6 @@ def read_terranes_files():
     """
     shp_file = gpd.read_file(dir_path + "Terranes.shp", driver="ESRI Shapefile")
 
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
     kml_file = gpd.read_file(dir_path + "Terranes.kmz", driver="libkml")
 
     print(gdb_file.columns)
@@ -540,11 +505,6 @@ def read_permafrost_point_files():
         dir_path + "Permafrost_Reports_Point.shp", driver="ESRI Shapefile"
     )
 
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
     kml_file = gpd.read_file(dir_path + "Permafrost_Reports_Point.kmz", driver="libkml")
 
     print(gdb_file.columns)
@@ -571,11 +531,6 @@ def read_permafrost_polygon_files():
         dir_path + "Permafrost_Reports_Polygon.shp", driver="ESRI Shapefile"
     )
 
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
     kml_file = gpd.read_file(
         dir_path + "Permafrost_Reports_Polygon.kmz", driver="libkml"
     )
@@ -583,12 +538,6 @@ def read_permafrost_polygon_files():
     print(gdb_file.columns)
     print(shp_file.columns)
     print(kml_file.columns)
-
-
-def read_permafrost_files():
-    # read .tif files
-    # read csv files
-    pass
 
 
 def read_radiogenic_heat_files():
@@ -610,11 +559,6 @@ def read_radiogenic_heat_files():
         dir_path + "Geothermal_Radiogenic_Heat_Production.shp", driver="ESRI Shapefile"
     )
 
-    """
-    ['id', 'Name', 'description', 'timestamp', 'begin', 'end',
-       'altitudeMode', 'tessellate', 'extrude', 'visibility', 'drawOrder',
-       'icon', 'snippet', 'geometry']
-    """
     kml_file = gpd.read_file(
         dir_path + "Geothermal_Radiogenic_Heat_Production.kmz", driver="libkml"
     )
@@ -622,3 +566,8 @@ def read_radiogenic_heat_files():
     print(gdb_file.columns)
     print(shp_file.columns)
     print(kml_file.columns)
+
+
+def read_water_wells_csv_files():
+    dir_path = "./data/yukon_datasets/DrillHoles/WaterWells/"
+    df = pd.read_csv(dir_path + "Waterwells.csv")
