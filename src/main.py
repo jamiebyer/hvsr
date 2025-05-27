@@ -33,9 +33,12 @@ if __name__ == "__main__":
     run from terminal
     """
 
-    # ind = int(sys.argv[1])
+    ind = int(sys.argv[1])
+    plot_raydec_station_timeseries_full(ind)
+    # all_station_ellipticities(ind)
 
-    plot_raydec_station()
+    #station, date = create_file_list(ind, in_path="./results/ellipticity/", suffix=".nc")
+    #plot_ellipticity(station, date, in_path="./results/ellipticity/")
 
     # Launch app
     """

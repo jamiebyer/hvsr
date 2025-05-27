@@ -9,9 +9,11 @@ import json
 from utils.utils import make_output_folder
 import xarray as xr
 from scipy.signal import find_peaks
+from scipy import stats
 from plotting.map_plotting import plot_map
 from processing.hvsr_processing import microtremor_hvsr_diffuse_field
-
+import datetime
+from matplotlib.colors import LogNorm
 # RAYDEC PLOT
 
 
@@ -138,23 +140,25 @@ def plot_sensitivity_test():
 def plot_ellipticity(
     station,
     date,
-    in_path="./results/raydec/",
-    out_path="./results/figures/ellipticity/",
+    in_path="./results/ellipticity/",
+    out_path="./figures/ellipticity/",
 ):
     da_raydec = xr.open_dataarray(in_path + station + "/" + date + ".nc")
-
     da_raydec = da_raydec.dropna(dim="freqs")
-
     da_raydec["median"] = da_raydec.median(dim="wind")
 
-    raydec_fig = px.line(
-        da_raydec,
-        color_discrete_sequence=["rgba(100, 100, 100, 0.2)"],
-        log_x=True,
-    )
-    raydec_fig.update_layout(title=str(station) + ", " + str(date))
+    plt.plot(da_raydec["freqs"], da_raydec.values, c="grey", alpha=0.2)
+    plt.plot(da_raydec["freqs"], da_raydec["median"], c="black")
+    plt.xscale("log")
+
+    plt.title("station " + str(station) + ", " + str(date).split("_")[1])
+    plt.xlabel("frequency (Hz)")
+    plt.xlim([da_raydec["freqs"][0], da_raydec["freqs"][-1]])
+    plt.ylabel("ellipticity")
     make_output_folder(out_path + str(station) + "/")
-    raydec_fig.write_image(out_path + station + "/" + date + ".png")
+    plt.savefig(out_path + station + "/" + date + ".png")
+
+
 
 
 def plot_ellipticity_examples(out_path="./results/figures/ellipticity/"):
@@ -198,67 +202,6 @@ def plot_ellipticity_examples(out_path="./results/figures/ellipticity/"):
     plt.savefig(out_path + "categories.png")
 
 
-def plot_ellipticity_outliers():
-    in_path = "./results/raydec/QC/"
-    out_path = "./results/figures/ellipticity/"
-    make_output_folder(out_path)
-    for station in os.listdir(in_path):
-        print(station)
-        make_output_folder(out_path + str(station) + "/")
-        for date in os.listdir(in_path + station):
-            try:
-                da_ellipticity = xr.open_dataarray(in_path + station + "/" + date)
-
-                plt.close()
-
-                fig, axs = plt.subplots(figsize=(20, 14), nrows=2, ncols=2)
-
-                da_ellipticity.plot.line(
-                    x="freqs",
-                    ax=axs[0, 0],
-                    color=(0.1, 0.1, 0.1, 0.1),
-                    xscale="log",
-                    add_legend=False,
-                )
-
-                if np.any(da_ellipticity["QC_0"] == False):
-                    da_ellipticity[:, da_ellipticity["QC_0"] == False].plot.line(
-                        x="freqs",
-                        ax=axs[1, 0],
-                        color=(0.1, 0.1, 0.1, 0.1),
-                        xscale="log",
-                        add_legend=False,
-                    )
-                axs[1, 0].set_title(np.sum(da_ellipticity["QC_0"].values))
-
-                if np.any(da_ellipticity["QC_1"] == False):
-                    da_ellipticity[:, da_ellipticity["QC_1"] == False].plot.line(
-                        x="freqs",
-                        ax=axs[0, 1],
-                        color=(0.1, 0.1, 0.1, 0.1),
-                        xscale="log",
-                        add_legend=False,
-                    )
-                axs[0, 1].set_title(np.sum(da_ellipticity["QC_1"].values))
-
-                if np.any(da_ellipticity["QC_2"] == False):
-                    da_ellipticity[:, da_ellipticity["QC_2"] == False].plot.line(
-                        x="freqs",
-                        ax=axs[1, 1],
-                        color=(0.1, 0.1, 0.1, 0.1),
-                        xscale="log",
-                        add_legend=False,
-                    )
-
-                axs[1, 1].set_title(np.sum(da_ellipticity["QC_2"].values))
-
-                plt.tight_layout()
-
-                plt.savefig(out_path + station + "/" + date.replace(".nc", ".png"))
-            except AttributeError:
-                continue
-
-
 def compare_hvsr_raydec(in_path_hvsr, in_path_raydec, out_path):
     # get hvsr
     # f_name = "./data/example_site/453024237.0005.2024.06.09.00.00.00.000.E.miniseed"
@@ -284,13 +227,9 @@ def compare_hvsr_raydec(in_path_hvsr, in_path_raydec, out_path):
 
     plt.legend(["hvsr", "ellipticity"])
 
-<<<<<<< HEAD
     print(out_path)
     plt.savefig(out_path)
 
-=======
-    plt.show()
->>>>>>> 1c36a82c3293da9561069c3327d7186ff9d0bd7b
 
 
 def plot_hvsr_station():
@@ -319,32 +258,15 @@ def plot_hvsr_station():
     plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
 
 
-def plot_raydec_station():
-    in_path = "./results/raydec/"
-    site = "06"
 
-    meds = []
-    for f in os.listdir(in_path + site + "/"):
-        da = xr.open_dataarray(in_path + site + "/" + f)
-        meds.append(da.median(dim="wind"))
-
-    # plt.plot(meds, da.freqs)
-    plt.imshow(np.array(meds).T)
-    # plt.xscale("log")
-    # plt.xlim([0.8, 50])
-
-    plt.savefig("./results/figures/ellipticity/ellipticity_timeseries.png")
-
-
-
-def all_station_ellipticities():
+def all_station_ellipticity_plotting(ind):
     in_path_hvsr = "./results/timeseries/sorted/"
-    in_path_raydec = "./results/raydec/"
+    in_path_raydec = "./results/ellipticity/examples/"
     #in_path = "./results/timeseries/sorted/"
-    out_path = "./results/figures/ellipticity/examples/"
+    out_path = "./figures/ellipticity/examples/"
     # sites
-    #sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
-    sites = ["06"]
+    sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    #sites = ["06"]
     # sites = os.listdir(in_paths)
 
     in_paths_hvsr = []
@@ -360,10 +282,313 @@ def all_station_ellipticities():
             if make_folders:
                 make_output_folder(out_path + s + "/")
             in_paths_hvsr.append(in_path_hvsr + s + "/" + f)
-            in_paths_raydec.append(in_path_raydec + s + "/" + f.replace(".miniseed", ".nc"))
+            in_paths_raydec.append(in_path_raydec + s + "/" + f.replace(".E.miniseed", ".nc"))
             #in_paths.append(in_path + s + "/" + f)
             out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".png"))
             #out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".nc"))
     
     compare_hvsr_raydec(in_paths_hvsr[ind], in_paths_raydec[ind], out_paths[ind])
     # example_ellipticity(in_paths[ind], out_paths[ind])
+
+
+
+def plot_raydec_station_timeseries_full(ind):
+    in_path = "./results/ellipticity/"
+    out_path = "./figures/ellipticity_timeseries/"
+    # sites
+    # sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    sites = os.listdir(in_path)
+
+    in_paths = []
+    out_paths = []
+    for s in sites:
+        in_paths.append(in_path + s + "/")
+        out_paths.append(out_path + s + ".png")
+    
+    plot_raydec_station_timeseries(in_paths[ind], out_paths[ind])
+
+
+def plot_raydec_station_timeseries(in_path, out_path):
+    dates = []
+    meds = []
+    for f in os.listdir(in_path):
+        date = f.split("_")[1].removesuffix(".nc").split("-")
+        dates.append(datetime.datetime(year=int(date[0]), month=int(date[1]), day=int(date[2])))
+        da = xr.open_dataarray(in_path + f)
+        meds.append(da.median(dim="wind"))
+    
+    inds = np.argsort(dates)
+    dates = np.array(dates)[inds]
+    meds = np.array(meds)[inds]
+
+
+    extent = [np.log10(np.min(da["freqs"])), np.log10(np.max(da["freqs"])), dates[0], dates[-1]]
+    plt.imshow(meds, cmap="coolwarm", extent=extent, aspect="auto", origin='lower', interpolation="none")
+    
+    #plt.xscale("log")
+    plt.xlabel("frequency (Hz)")
+    plt.xlim([np.log10(0.06), np.log10(np.max(da["freqs"]))])
+    
+    plt.xticks([-1, 0, 1], ["10^-1", "10^0", "10^1"])
+
+    plt.colorbar()
+
+    plt.rcParams["figure.figsize"] = (8,6)
+    plt.tight_layout()
+    plt.savefig(out_path)
+
+
+def plot_raydec_station_timeseries_og(in_path, out_path):
+    dates = []
+    meds = []
+    for f in os.listdir(in_path):
+        date = f.split("_")[1].removesuffix(".nc").split("-")
+        dates.append(datetime.datetime(year=int(date[0]), month=int(date[1]), day=int(date[2])))
+        da = xr.open_dataarray(in_path + f)
+        meds.append(da.median(dim="wind"))
+
+    extent = [np.min(da["freqs"]), np.max(da["freqs"]), dates[0], dates[-1]]
+    plt.imshow(meds, cmap="coolwarm", extent=extent, aspect="auto")
+    #plt.yticks()
+    plt.xscale("log")
+    plt.xlabel("freq")
+
+    plt.colorbar()
+    plt.rcParams["figure.figsize"] = (8,6)
+    plt.tight_layout()
+    plt.savefig(out_path)
+
+
+
+def plot_hvsr_station_timeseries_full(ind):
+    in_path = "./results/timeseries/sorted/"
+    out_path = "./figures/hvsr_timeseries/examples/"
+    # sites
+    sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    # sites = os.listdir(in_paths)
+
+    in_paths = []
+    out_paths = []
+    for s in sites:
+        in_paths.append(in_path + s + "/")
+        out_paths.append(out_path + s + ".png")
+    
+    plot_hvsr_station_timeseries(in_paths[ind], out_paths[ind])
+
+
+def plot_hvsr_station_timeseries(in_path, out_path):
+    freqs = []
+    hvsrs = []
+    dates = []
+    for f in os.listdir(in_path):
+        if ".E." not in f:
+            continue        
+        f_name = in_path + f
+        fnames = [[f_name, f_name.replace(".E.", ".N."), f_name.replace(".E.", ".Z.")]]
+        srecords, hvsr = microtremor_hvsr_diffuse_field(fnames)
+
+        date = f.split("_")[1].removesuffix(".E.miniseed").split("-")
+        dates.append(datetime.datetime(year=int(date[0]), month=int(date[1]), day=int(date[2])))
+
+        freqs.append(hvsr.frequency)
+        hvsrs.append(hvsr.amplitude)
+
+    #extent = [np.min(da["freqs"]), np.max(da["freqs"]), dates[0], dates[-1]]
+    extent = [np.min(freqs[0]), np.max(freqs[0]), dates[0], dates[-1]]
+    plt.imshow(hvsrs, cmap="coolwarm", extent=extent, aspect="auto")
+    #plt.imshow(hvsrs, cmap="coolwarm", aspect="auto")
+
+    #plt.yticks()
+    plt.xscale("log")
+    plt.xlabel("freq")
+
+    plt.colorbar()
+    # plt.rcParams["figure.figsize"] = (8,6)
+    plt.tight_layout()
+    plt.savefig(out_path)
+
+
+
+
+
+
+def plot_compare_station_timeseries_full(ind):
+    in_path_hvsr = "./results/timeseries/sorted/"
+    in_path_raydec = "./results/ellipticity/examples/"
+    out_path = "./figures/compare_timeseries/examples/"
+    # sites
+    sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    # sites = ["06"]
+    # sites = os.listdir(in_paths)
+
+    in_paths_hvsr = []
+    in_paths_raydec = []
+    out_paths = []
+    for s in sites:
+        in_paths_hvsr.append(in_path_hvsr + s + "/")
+        in_paths_raydec.append(in_path_raydec + s + "/")
+        out_paths.append(out_path + s + ".png")
+    
+    plot_compare_station_timeseries(in_paths_hvsr[ind], in_paths_raydec[ind], out_paths[ind])
+
+
+def plot_compare_station_timeseries(in_path_hvsr, in_path_raydec, out_path):
+    freqs = []
+    hvsrs = []
+    dates = []
+    for f in os.listdir(in_path_hvsr):
+        if ".E." not in f:
+            continue        
+        f_name = in_path_hvsr + f
+        fnames = [[f_name, f_name.replace(".E.", ".N."), f_name.replace(".E.", ".Z.")]]
+        srecords, hvsr = microtremor_hvsr_diffuse_field(fnames)
+
+        date = f.split("_")[1].removesuffix(".E.miniseed").split("-")
+        dates.append(datetime.datetime(year=int(date[0]), month=int(date[1]), day=int(date[2])))
+
+        freqs.append(hvsr.frequency)
+        hvsrs.append(hvsr.amplitude)
+
+    inds = np.argsort(dates)
+    dates = np.array(dates)[inds]
+    hvsrs = np.array(hvsrs)[inds]
+
+    plt.subplot(2, 2, 1)
+    
+    extent = [np.log10(np.min(freqs[0])), np.log10(np.max(freqs[0])), dates[0], dates[-1]]
+    # plt.imshow(hvsrs, cmap="coolwarm", extent=extent, aspect="auto", norm=LogNorm(), origin='lower', interpolation="none")
+    #plt.imshow(hvsrs, cmap="coolwarm", extent=extent, aspect="auto", norm="linear", origin='lower', interpolation="none")
+    plt.imshow(hvsrs, cmap="coolwarm", extent=extent, aspect="auto", origin='lower', interpolation="none")
+    # plt.imshow(hvsrs, cmap="coolwarm", aspect="auto", norm=LogNorm())
+
+    plt.xlim([np.log10(0.8), np.log10(20)])
+    plt.xticks([0, 1], ["10^0", "10^1"])
+
+    #plt.xscale("log")
+    plt.xlabel("freq")
+
+    plt.colorbar()
+    plt.title("hvsr")
+
+    plt.subplot(2, 2, 2)
+
+    for h in hvsrs:
+        plt.plot(freqs[0], h, c="grey", alpha=0.3)
+    
+    #plt.plot(freqs, hvsrs) # , c="grey", alpha=0.3)
+    
+    plt.xscale("log")
+    plt.xlabel("freq")
+    plt.title("hvsr")
+    plt.xlim([0.8, 20])
+
+
+    dates = []
+    meds = []
+    for f in os.listdir(in_path_raydec):
+        date = f.split("_")[1].removesuffix(".nc").split("-")
+        dates.append(datetime.datetime(year=int(date[0]), month=int(date[1]), day=int(date[2])))
+        da = xr.open_dataarray(in_path_raydec + f)
+        meds.append(da.median(dim="wind"))
+    
+    inds = np.argsort(dates)
+    dates = np.array(dates)[inds]
+    meds = np.array(meds)[inds]
+
+    meds_norm = meds/np.linalg.norm(meds)
+
+    plt.subplot(2, 2, 3)
+
+    extent = [np.log10(np.min(da["freqs"])), np.log10(np.max(da["freqs"])), dates[0], dates[-1]]
+    plt.imshow(meds_norm, cmap="coolwarm", extent=extent, aspect="auto", origin='lower', interpolation="none")
+    
+    #plt.xscale("log")
+    plt.xlabel("freq")
+    plt.title("raydec")
+    plt.xlim([np.log10(0.8), np.log10(20)])
+    
+    plt.xticks([0, 1], ["10^0", "10^1"])
+
+    plt.colorbar()
+
+    
+    plt.subplot(2, 2, 4)
+
+    plt.plot(da["freqs"], np.array(meds_norm).T, c="grey", alpha=0.3)
+    
+    plt.xscale("log")
+    plt.xlabel("freq")
+    plt.title("raydec")
+    plt.xlim([0.8, 20])
+
+
+    plt.rcParams["figure.figsize"] = (20,25)
+    plt.tight_layout()
+    plt.savefig(out_path)
+
+
+
+
+
+def plot_raydec_station_peaks_full(ind):
+    in_path = "./results/ellipticity/examples/"
+    out_path = "./figures/ellipticity_peaks/examples/"
+    # sites
+    sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    # sites = os.listdir(in_paths)
+
+    in_paths = []
+    out_paths = []
+    for s in sites:
+        in_paths.append(in_path + s + "/")
+        out_paths.append(out_path + s + ".png")
+    
+    plot_raydec_station_peaks(in_paths[ind], out_paths[ind])
+
+
+def plot_raydec_station_peaks(in_path, out_path):
+    dates = []
+    meds = []
+    peaks = []
+    for f in os.listdir(in_path):
+        #date = f.split("_")[1].removesuffix(".nc").split("-")
+        #dates.append(datetime.datetime(year=int(date[0]), month=int(date[1]), day=int(date[2])))
+        date = f.split("_")[1].removesuffix(".nc")
+        dates.append(date)
+
+        da = xr.open_dataarray(in_path + f)
+        freqs = da["freqs"]
+        med = da.median(dim="wind")
+        
+        i_peaks, _ = find_peaks(med)
+
+        i_max_peak = i_peaks[np.argsort(med[i_peaks].values)[-3:]]
+        x_max = list(freqs[i_max_peak])
+        # peaks.append(x_max)
+        peaks += x_max
+
+        plt.plot(freqs, med)
+    
+    #plt.scatter(freqs[i_max_peak], med[i_max_peak])
+    plt.axvline(stats.mode(peaks)[0])
+
+    plt.legend(dates)
+    #extent = [np.min(da["freqs"]), np.max(da["freqs"]), dates[0], dates[-1]]
+    
+    # plt.imshow(meds, cmap="coolwarm", extent=extent, aspect="auto")
+    #plt.yticks()
+    plt.xscale("log")
+    plt.xlabel("freq")
+
+    #plt.colorbar()
+    plt.rcParams["figure.figsize"] = (16,8)
+    plt.tight_layout()
+    plt.savefig(out_path)
+
+
+
+
+
+
+def plot_averaged_station_ellipticity():
+    pass

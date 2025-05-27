@@ -131,9 +131,10 @@ def example_ellipticity(in_path, out_path):
     # need to save timeseries
     times = np.arange(0, len(night_inds) * delta, delta)
 
-    f_min = 0.8
+    #f_min = 0.8
+    f_min = 0.001
     f_max = 40
-    f_steps = 100
+    f_steps = 500
     cycles = 10
     df_par = 0.1
 
@@ -167,6 +168,32 @@ def example_ellipticity(in_path, out_path):
     )
 
     ds.to_netcdf(out_path)
+
+
+def all_station_ellipticities(ind):
+    in_path = "./results/timeseries/sorted/"
+    out_path = "./results/ellipticity/"
+    # out_path = "./results/ellipticity/freq_range/"
+    
+    # sites
+    # sites = ["06", "07A", "17", "23", "24", "25", "32B", "34A", "38B", "41A", "41B", "42B", "47", "50"]
+    # sites = ["06"]
+    sites = os.listdir(in_path)
+
+    in_paths = []
+    out_paths = []
+    make_folders = True
+    for s in sites:
+        for f in os.listdir(in_path + s + "/"):
+            if ".E." not in f:
+                continue
+            if make_folders:
+                make_output_folder(out_path + s + "/")
+            in_paths.append(in_path + s + "/" + f)
+            out_paths.append(out_path + s + "/" + f.replace(".E.miniseed", ".nc"))
+    
+    example_ellipticity(in_paths[ind], out_paths[ind])
+
 
 
 def temporal_ellipticity():

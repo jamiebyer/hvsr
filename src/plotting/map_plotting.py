@@ -303,7 +303,7 @@ def plot_stations_map():
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(projection=proj)
 
-    ax.set_extent([-135.25, -134.9, 60.65, 60.81])
+    ax.set_extent([-135.25, -134.92, 60.65, 60.81])
 
     # Add background
     ax.add_image(request2, 13)
@@ -312,7 +312,7 @@ def plot_stations_map():
     # Draw gridlines
     gl1 = ax.gridlines(
         draw_labels=True,
-        xlocs=np.arange(-136.0, -134.0, 0.1),
+        xlocs=np.arange(-136.0, -134.9, 0.1),
         ylocs=np.arange(60.0, 61.0, 0.1),
         linestyle=":",
         color="w",
@@ -339,7 +339,7 @@ def plot_stations_map():
         # label=names,
     )
 
-    for site in [5, 64, 17]:
+    for site in []:#[5, 64, 17]:
         lat, lon = stations_df[stations_df["site"] == site]["GNSS_latitude_rounded"].values[0], stations_df[stations_df["site"] == site]["GNSS_longitude_rounded"].values[0]
         print(lat, lon)
         ax.scatter(lon, lat, color='r', marker="o", s=200, facecolors='none', transform=ccrs.PlateCarree())
@@ -359,7 +359,7 @@ def plot_stations_map():
 
     # Save figure
     plt.savefig(
-        "./results/figures/site/stations_map.png", dpi=300, bbox_inches="tight"
+        "./figures/site/stations_map.png", dpi=300, bbox_inches="tight"
     )
 
 

@@ -160,47 +160,6 @@ def get_clean_timeseries_slice(
     df_stats.to_csv("./results/timeseries/stats/timeseries_slice.csv")
 
 
-def plot_station_noise():
-    in_path = "./results/timeseries/sorted/"
-    site = "06"
-    
-    #start_time = datetime.datetime(hour=22)
-    #start_time = datetime.datetime.strptime('22:00', '%H:%M')
-    #s = 8 * 60 *60 *100
-    #s = 3240000
-    #delta = 0.01
-    #d_times = start_time + np.arange(0, s) * datetime.timedelta(seconds=delta)
-
-    # time.strftime('%H:%M')
-
-    # mags = []
-    # freqs = []
-    for f in os.listdir(in_path + site + "/"):
-        if ".E." not in f:
-            continue
-        times, ts, night_inds, delta = slice_timeseries(in_path + site + "/" + f)
-
-        # get noise frequency
-        mag = np.sqrt(ts[0][night_inds]**2+ts[1][night_inds]**2+ts[2][night_inds]**2)
-        #mags.append(mag)
-        '''
-        ft = np.fft.fftn(
-            ts[:, night_inds],
-            axes=[1],
-        )
-        freqs_shift = np.fft.fftshift(ft)
-        freqs.append(freqs_shift)
-        '''
-
-        make_output_folder("./figures/timeseries/" + site + "/")
-        plt.clf()
-        #plt.imshow(freqs)
-        plt.plot(times[night_inds], mag)
-
-        #plt.xticks(np.arange(0, 8*60 *60 *100, 8), [22, 23, 0, 1, 2, 3, 4, 5])
-
-        plt.tight_layout()
-        plt.savefig("./figures/timeseries/" + site + "/" + f.replace(".E.miniseed", ".png"))
 
         
 
